@@ -1,8 +1,6 @@
 import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH, SNAPSHOT_SERVICE } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
-import readline from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
 import { readUsageFromAgy } from './usage.js';
 import {
   deleteSnapshot,
@@ -18,7 +16,7 @@ import { defaultRegistry, findAccount, readRegistry, slug, upsertAccount, writeR
 function help() {
   console.log(`agy-auth ${VERSION}`);
   console.log('');
-  console.log('Local Google Antigravity account switcher for agy CLI.');
+  console.log('Local Google Antigravity session manager for agy CLI/App.');
   console.log('');
   console.log('Commands:');
   console.log('  status                  Show active AGY account and registry status');
@@ -28,7 +26,7 @@ function help() {
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh active quota, then list snapshots');
   console.log('  usage [--json]          Show active account quota and reset time');
-  console.log('  switch [<query>]        Switch active AGY auth by email/alias/key');
+  console.log('  switch <query>          Switch active AGY session by email/alias/key');
   console.log('  remove <query|--all>    Remove captured snapshots');
   console.log('  native                  List native AGY keyring entries without secrets');
   console.log('  config                  Show keyring service configuration');
@@ -100,8 +98,8 @@ async function captureCurrentAccount(args) {
   const email = await detectActiveAccount();
   if (!email) {
     throw new Error(
-      'Active AGY email was not detected. Open `agy` or Antigravity App first, complete sign-in, '
-      + 'then run `agy-auth login` to add the active account.',
+      'Active AGY email was not detected. Sign in with AGY outside agy-auth, '
+      + 'then run `agy-auth login` to add the active session.',
     );
   }
   const secret = await readAgyCredential();
@@ -135,7 +133,7 @@ async function login(args, jsonMode) {
     const payload = {
       ok: false,
       error: '`agy-auth login --device-auth` is not supported.',
-      fallback: 'Open `agy` or Antigravity App first, complete sign-in, then run `agy-auth login --alias <name>`.',
+      fallback: 'agy-auth is only a session manager. Sign in with AGY outside agy-auth, then run `agy-auth login --alias <name>`.',
     };
     if (jsonMode) printJson(payload);
     else {
@@ -227,31 +225,16 @@ async function usage(jsonMode) {
   return usagePayload.available ? 0 : 1;
 }
 
-async function selectAccountInteractively(registry) {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
-  printAccounts(registry);
-  const rl = readline.createInterface({ input, output });
-  try {
-    const answer = await rl.question('Pilih nomor akun untuk switch: ');
-    const index = Number.parseInt(answer.trim(), 10);
-    if (!Number.isInteger(index) || index < 1 || index > registry.accounts.length) return null;
-    return registry.accounts[index - 1];
-  } finally {
-    rl.close();
-  }
-}
-
 async function switchAccount(query, jsonMode) {
   if (!query) {
     const registry = await readListRegistry();
-    if (jsonMode || !process.stdin.isTTY || !process.stdout.isTTY) {
-      if (jsonMode) printJson({ ok: false, error: 'Switch query is required in non-interactive mode.', accounts: registry.accounts });
-      else printAccounts(registry);
-      return 1;
+    if (jsonMode) {
+      printJson({ ok: false, error: 'Switch query is required.', accounts: registry.accounts });
+    } else {
+      console.log('Switch query is required. Use an email, alias, or key from this list:');
+      printAccounts(registry);
     }
-    const selected = await selectAccountInteractively(registry);
-    if (!selected) return 1;
-    query = selected.accountKey;
+    return 1;
   }
   const registry = await readListRegistry();
   const { account, matches } = findAccount(registry, query);
@@ -273,10 +256,10 @@ async function switchAccount(query, jsonMode) {
   upsertAccount(registry, account);
   await writeRegistry(registry);
 
-  if (jsonMode) printJson({ ok: true, account, restartRequired: true });
+  if (jsonMode) printJson({ ok: true, account, activeCredentialWritten: true });
   else {
-    console.log(`Switched AGY credential to: ${account.email}`);
-    console.log('Restart running AGY CLI/App sessions so they reload the credential.');
+    console.log(`Active AGY session set to: ${account.email}`);
+    console.log('AGY CLI/App will load this credential as the active session.');
   }
   return 0;
 }

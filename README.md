@@ -1,8 +1,8 @@
 # agy-auth
 
-Standalone local account switcher for Google Antigravity `agy` CLI.
+Standalone local session manager for Google Antigravity `agy` CLI/App.
 
-`agy-auth` captures the currently logged-in Antigravity credential from the OS keyring, stores account snapshots back into the OS keyring, and restores one snapshot when you run `agy-auth switch`.
+`agy-auth` only manages local AGY sessions. It captures the currently active Antigravity credential from the OS keyring, stores session snapshots back into the OS keyring, and restores one snapshot when you run `agy-auth switch`. It does not open AGY, launch Antigravity, or start an AGY conversation.
 
 ## Install
 
@@ -30,7 +30,7 @@ service: gemini:antigravity
 account: antigravity
 ```
 
-`agy-auth login` reads the currently active AGY credential and saves a copy under:
+`agy-auth login` reads the currently active AGY session credential and saves a copy under:
 
 ```text
 service: agy-auth
@@ -49,16 +49,15 @@ agy-auth import --alias main # same as login
 agy-auth list             # list stored auth snapshots
 agy-auth list --refresh   # refresh active quota, then list
 agy-auth usage            # read active quota from AGY /usage
-agy-auth switch           # choose from the list interactively
 agy-auth switch main      # switch by alias/email/key
 agy-auth remove main
 agy-auth native
 agy-auth config
 ```
 
-`agy-auth login` does not open an interactive Antigravity session. It only captures the active local AGY account. If the device has no active account yet, open `agy` or the Antigravity App first, complete sign-in, then run `agy-auth login --alias <name>`.
+`agy-auth login` only captures the active local AGY account. If the device has no active account yet, sign in using AGY outside agy-auth first, then run `agy-auth login --alias <name>`.
 
-Current tested AGY builds do not expose a native `login` or `--device-auth` command in `agy --help`. `agy-auth login --device-auth` is therefore not supported; `agy-auth login` means "add the active account" only.
+Current tested AGY builds do not expose a native `login` or `--device-auth` command in `agy --help`. `agy-auth login --device-auth` is therefore not supported; `agy-auth login` means "add the active session" only.
 
 `agy-auth list` shows reset times as actual local date/time values, for example `18:23` or `15:12 on 7 Jul`, instead of raw relative durations such as `118h 40m`.
 
@@ -70,7 +69,7 @@ Current tested AGY builds do not expose a native `login` or `--device-auth` comm
 4. Run `agy-auth login --alias backup`.
 5. Switch with `agy-auth switch main` or `agy-auth switch backup`.
 
-Restart running AGY CLI/App sessions after switching so they reload the credential.
+After `agy-auth switch <alias|email|key>`, the active AGY credential in the OS keyring is replaced with the selected snapshot. AGY CLI/App loads the selected account from that active credential.
 
 ## Cross-Platform Notes
 

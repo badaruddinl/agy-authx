@@ -1,0 +1,46 @@
+{
+  "name": "@badaruddinl/agy-auth",
+  "version": "0.1.0",
+  "description": "Local Google Antigravity account switcher for the agy CLI.",
+  "type": "module",
+  "bin": {
+    "agy-auth": "./bin/agy-auth.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node scripts/check-syntax.js",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "keywords": [
+    "antigravity",
+    "agy",
+    "cli",
+    "auth",
+    "keyring"
+  ],
+  "author": "Badaruddin Luthfi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/badaruddinl/agy-auth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/badaruddinl/agy-auth/issues"
+  },
+  "homepage": "https://github.com/badaruddinl/agy-auth#readme",
+  "dependencies": {
+    "keytar": "^7.9.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

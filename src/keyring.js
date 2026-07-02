@@ -60,10 +60,6 @@ export async function deleteSnapshot(accountKey) {
   return keytar.deletePassword(SNAPSHOT_SERVICE, accountKey);
 }
 
-export async function listNativeAgyCredentials() {
-  return keytar.findCredentials(AGY_SERVICE);
-}
-
 export async function listSnapshots() {
   return keytar.findCredentials(SNAPSHOT_SERVICE);
 }

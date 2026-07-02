@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { extractAccountEmail } from '../src/agy.js';
 import { internals as loginInternals } from '../src/agy-login.js';
-import { internals } from '../src/cli.js';
+import { internals, run } from '../src/cli.js';
 import { formatLastRefresh, formatResetAt, formatUsageColumns, parseRefreshDuration, printAccounts } from '../src/format.js';
 import { readRegistry, upsertAccount } from '../src/registry.js';
 import { parseUsageOutput } from '../src/usage.js';
@@ -33,14 +33,31 @@ test('matches accounts by email alias and key', () => {
   assert.equal(internals.findAccount(registry, 'example.com').matches.length, 2);
 });
 
-test('parses import alias', () => {
+test('parses login alias', () => {
   assert.equal(internals.parseAlias(['--alias', 'utama']), 'utama');
   assert.equal(internals.parseAlias([]), '');
   assert.throws(() => internals.parseAlias(['--alias']), /requires a value/);
 });
 
-test('agy-auth capture is a local session manager command', () => {
+test('agy-auth login is a local session manager command', () => {
   assert.equal(typeof internals.parseAlias, 'function');
+});
+
+test('debug session commands are not public commands', async () => {
+  const originalError = console.error;
+  const writes = [];
+  console.error = value => writes.push(value);
+  try {
+    assert.equal(await run(['capture']), 2);
+    assert.equal(await run(['import']), 2);
+    assert.equal(await run(['native']), 2);
+    assert.equal(await run(['config']), 2);
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.match(writes.join('\n'), /Unknown command: capture/);
+  assert.match(writes.join('\n'), /Unknown command: config/);
 });
 
 test('matches active AGY account emails case-insensitively', () => {
@@ -256,7 +273,7 @@ test('formats list usage columns', () => {
   assert.equal(columns.otherWeekly, '66% (09:33 on 7 Jul)');
 });
 
-test('formats active uncaptured account as current auth', () => {
+test('formats active unsaved account as current auth', () => {
   const writes = [];
   const originalLog = console.log;
   console.log = value => writes.push(value);

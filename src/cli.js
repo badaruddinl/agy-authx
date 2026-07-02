@@ -1,4 +1,4 @@
-import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH, SNAPSHOT_SERVICE } from './constants.js';
+import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
 import { runAgyNativeLogin } from './agy-login.js';
@@ -8,7 +8,6 @@ import {
   deleteSnapshot,
   KeyringError,
   listSnapshots,
-  listNativeAgyCredentials,
   readAgyCredential,
   readSnapshot,
   saveSnapshot,
@@ -26,16 +25,12 @@ function help() {
   console.log('  login [--alias name]    Run AGY sign-in, then save the resulting session');
   console.log('  login --oauth           Use Google OAuth login method (default)');
   console.log('  login --cloud-project   Use Google Cloud project login method');
-  console.log('  capture [--alias name]  Capture the currently active AGY session');
-  console.log('  import [--alias name]   Alias for capture');
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh quota for all snapshots, then list');
   console.log('  usage [--json]          Show active account quota and reset time');
   console.log('  switch <query>          Switch active AGY session by email/alias/key');
   console.log('  verify                  Verify agy-auth active account matches native agy');
-  console.log('  remove <query|--all>    Remove captured snapshots');
-  console.log('  native                  List native AGY keyring entries without secrets');
-  console.log('  config                  Show keyring service configuration');
+  console.log('  remove <query|--all>    Remove saved snapshots');
   console.log('  --version, -V           Show version');
   console.log('');
   console.log('Options:');
@@ -68,26 +63,28 @@ function sameEmail(left, right) {
 
 async function status(jsonMode) {
   const registry = await readRegistry();
+  const sync = await ensureSelectedSessionActive(registry);
   const activeAccount = registry.accounts.find(account => account.accountKey === registry.activeAccountKey);
   const email = activeAccount?.email || await detectActiveAccount();
   const payload = {
     version: VERSION,
     activeAccountEmail: email,
     registryPath: REGISTRY_PATH,
-    capturedAccounts: registry.accounts.length,
+    savedAccounts: registry.accounts.length,
     activeAccountKey: registry.activeAccountKey,
     agyService: AGY_SERVICE,
     agyAccount: AGY_ACCOUNT,
-    snapshotService: SNAPSHOT_SERVICE,
+    activeCredentialRepaired: sync.repaired,
   };
   if (jsonMode) {
     printJson(payload);
   } else {
     console.log(`active account: ${email || '-'}`);
-    console.log(`captured accounts: ${registry.accounts.length}`);
+    console.log(`saved accounts: ${registry.accounts.length}`);
     console.log(`active account key: ${registry.activeAccountKey || '-'}`);
     console.log(`agy credential: service=${AGY_SERVICE}, account=${AGY_ACCOUNT}`);
     console.log(`registry: ${REGISTRY_PATH}`);
+    if (sync.repaired) console.log('active credential: repaired from selected agy-auth session');
   }
   return email ? 0 : 1;
 }
@@ -98,6 +95,7 @@ async function refreshActiveUsage() {
   if (!email) return usage;
 
   const accountKey = slug(email);
+  await saveActiveCredentialSnapshot(accountKey);
   const registry = await readRegistry();
   const previous = registry.accounts.find(account => account.accountKey === accountKey);
   upsertAccount(registry, {
@@ -121,6 +119,7 @@ async function refreshUsageForAccount(registry, account) {
   const usage = await readUsageFromAgy();
   const usageEmail = usage.accountEmail || account.email;
   const accountKey = account.accountKey;
+  await saveActiveCredentialSnapshot(accountKey);
   const previous = registry.accounts.find(item => item.accountKey === accountKey);
   upsertAccount(registry, {
     ...previous,
@@ -161,7 +160,7 @@ async function captureCurrentAccount(args, emailOverride = '') {
   if (!email) {
     throw new Error(
       'Active AGY email was not detected. Sign in with AGY outside agy-auth, '
-      + 'then run `agy-auth capture` to save the active session.',
+      + 'then run `agy-auth login` to save the active session.',
     );
   }
   const secret = await readAgyCredential();
@@ -181,13 +180,6 @@ async function captureCurrentAccount(args, emailOverride = '') {
   registry.activeAccountKey = accountKey;
   await writeRegistry(registry);
   return account;
-}
-
-async function captureAccount(args, jsonMode, emailOverride = '') {
-  const account = await captureCurrentAccount(args, emailOverride);
-  if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
-  else console.log(`Captured AGY session: ${account.email}`);
-  return 0;
 }
 
 async function login(args, jsonMode) {
@@ -292,8 +284,52 @@ async function assertActiveCredentialMatches(accountKey) {
   }
 }
 
+async function ensureSelectedSessionActive(registry = null) {
+  const currentRegistry = registry || await readRegistry();
+  const activeAccount = currentRegistry.accounts.find(account => account.accountKey === currentRegistry.activeAccountKey);
+  if (!activeAccount) return { activeAccount: null, matched: false, repaired: false };
+
+  const snapshotSecret = await readSnapshot(activeAccount.accountKey).catch(error => {
+    if (error instanceof KeyringError) return null;
+    throw error;
+  });
+  if (!snapshotSecret) {
+    return {
+      activeAccount,
+      matched: false,
+      repaired: false,
+      error: `Saved snapshot credential is missing for ${activeAccount.accountKey}.`,
+    };
+  }
+
+  const activeSecret = await readAgyCredential().catch(error => {
+    if (error instanceof KeyringError) return null;
+    throw error;
+  });
+
+  if (activeSecret === snapshotSecret) {
+    return { activeAccount, matched: true, repaired: false };
+  }
+
+  await writeAgyCredential(snapshotSecret);
+  await assertActiveCredentialMatches(activeAccount.accountKey);
+  return { activeAccount, matched: true, repaired: true };
+}
+
+async function saveActiveCredentialSnapshot(accountKey) {
+  try {
+    const activeSecret = await readAgyCredential();
+    await saveSnapshot(accountKey, activeSecret);
+    return true;
+  } catch (error) {
+    if (error instanceof KeyringError) return false;
+    throw error;
+  }
+}
+
 async function readListRegistry() {
   const registry = await readRegistry();
+  await ensureSelectedSessionActive(registry);
   const snapshots = await listSnapshots();
   const activeAccount = registry.accounts.find(account => account.accountKey === registry.activeAccountKey);
   const activeEmail = activeAccount?.email || await detectActiveAccount();
@@ -351,6 +387,8 @@ async function list(jsonMode, refresh = false) {
 }
 
 async function usage(jsonMode) {
+  const registry = await readRegistry();
+  await ensureSelectedSessionActive(registry);
   const usagePayload = await refreshActiveUsage();
   if (jsonMode) {
     printJson(usagePayload);
@@ -388,8 +426,8 @@ async function switchAccount(query, jsonMode) {
     return 2;
   }
   if (!account) {
-    if (jsonMode) printJson({ ok: false, error: 'No captured account matched.', query });
-    else console.log('No captured account matched.');
+    if (jsonMode) printJson({ ok: false, error: 'No saved account matched.', query });
+    else console.log('No saved account matched.');
     return 1;
   }
 
@@ -411,7 +449,8 @@ async function switchAccount(query, jsonMode) {
 
 async function verify(jsonMode) {
   const registry = await readRegistry();
-  const activeAccount = registry.accounts.find(account => account.accountKey === registry.activeAccountKey);
+  const sync = await ensureSelectedSessionActive(registry);
+  const activeAccount = sync.activeAccount;
   if (!activeAccount) {
     const payload = {
       ok: false,
@@ -423,17 +462,14 @@ async function verify(jsonMode) {
     return 1;
   }
 
-  let credentialMatches = false;
-  try {
-    await assertActiveCredentialMatches(activeAccount.accountKey);
-    credentialMatches = true;
-  } catch (error) {
+  if (!sync.matched) {
     const payload = {
       ok: false,
-      error: error.message,
+      error: sync.error || 'Active AGY credential does not match the selected agy-auth session.',
       activeAccountEmail: activeAccount.email,
       activeAccountKey: activeAccount.accountKey,
       credentialMatches: false,
+      activeCredentialRepaired: false,
       nativeAgyEmail: null,
       nativeAgyMatches: false,
     };
@@ -441,7 +477,7 @@ async function verify(jsonMode) {
     else {
       console.log(`agy-auth active : ${activeAccount.email}`);
       console.log('active credential: mismatch');
-      console.log(`error           : ${error.message}`);
+      console.log(`error           : ${payload.error}`);
     }
     return 2;
   }
@@ -449,11 +485,13 @@ async function verify(jsonMode) {
   const usagePayload = await readUsageFromAgy();
   const nativeEmail = usagePayload.accountEmail || '';
   const nativeAgyMatches = sameEmail(nativeEmail, activeAccount.email);
+  if (nativeAgyMatches) await saveActiveCredentialSnapshot(activeAccount.accountKey);
   const payload = {
-    ok: credentialMatches && nativeAgyMatches,
+    ok: sync.matched && nativeAgyMatches,
     activeAccountEmail: activeAccount.email,
     activeAccountKey: activeAccount.accountKey,
-    credentialMatches,
+    credentialMatches: sync.matched,
+    activeCredentialRepaired: sync.repaired,
     nativeAgyEmail: nativeEmail || null,
     nativeAgyMatches,
     appCredentialSource: `${AGY_SERVICE}/${AGY_ACCOUNT}`,
@@ -464,7 +502,10 @@ async function verify(jsonMode) {
     printJson(payload);
   } else {
     console.log(`agy-auth active : ${payload.activeAccountEmail}`);
-    console.log(`active credential: ${payload.credentialMatches ? 'matches selected snapshot' : 'mismatch'}`);
+    const credentialState = payload.activeCredentialRepaired
+      ? 'repaired from selected snapshot'
+      : 'matches selected snapshot';
+    console.log(`active credential: ${credentialState}`);
     console.log(`native agy      : ${payload.nativeAgyEmail || '-'}`);
     console.log(`native match    : ${payload.nativeAgyMatches ? 'yes' : 'no'}`);
     console.log(`app credential  : ${payload.appCredentialSource}`);
@@ -480,8 +521,8 @@ async function remove(args, jsonMode) {
     ? registry.accounts
     : findAccount(registry, args[0]).matches;
   if (targets.length === 0) {
-    if (jsonMode) printJson({ ok: false, error: 'No captured account matched.' });
-    else console.log('No captured account matched.');
+    if (jsonMode) printJson({ ok: false, error: 'No saved account matched.' });
+    else console.log('No saved account matched.');
     return 1;
   }
 
@@ -492,36 +533,7 @@ async function remove(args, jsonMode) {
   await writeRegistry(registry);
 
   if (jsonMode) printJson({ ok: true, removed: [...keys] });
-  else console.log(`Removed ${keys.size} captured account(s).`);
-  return 0;
-}
-
-async function native(jsonMode) {
-  const credentials = await listNativeAgyCredentials();
-  const safe = credentials.map(item => ({ account: item.account }));
-  if (jsonMode) printJson({ service: AGY_SERVICE, credentials: safe });
-  else {
-    console.log(`AGY native service: ${AGY_SERVICE}`);
-    for (const item of safe) console.log(`- ${item.account}`);
-    if (safe.length === 0) console.log('- no entries found');
-  }
-  return safe.length ? 0 : 1;
-}
-
-function config(jsonMode) {
-  const payload = {
-    agyService: AGY_SERVICE,
-    agyAccount: AGY_ACCOUNT,
-    snapshotService: SNAPSHOT_SERVICE,
-    registryPath: REGISTRY_PATH,
-  };
-  if (jsonMode) printJson(payload);
-  else {
-    console.log(`agy service: ${AGY_SERVICE}`);
-    console.log(`agy account: ${AGY_ACCOUNT}`);
-    console.log(`snapshot service: ${SNAPSHOT_SERVICE}`);
-    console.log(`registry: ${REGISTRY_PATH}`);
-  }
+  else console.log(`Removed ${keys.size} saved account(s).`);
   return 0;
 }
 
@@ -543,14 +555,11 @@ export async function run(argv) {
   }
   if (command === 'status') return status(jsonMode);
   if (command === 'login') return login(rest, jsonMode);
-  if (command === 'capture' || command === 'import') return captureAccount(rest, jsonMode);
   if (command === 'list') return list(jsonMode, refresh);
   if (command === 'usage') return usage(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);
   if (command === 'verify') return verify(jsonMode);
   if (command === 'remove') return remove(rest, jsonMode);
-  if (command === 'native') return native(jsonMode);
-  if (command === 'config') return config(jsonMode);
 
   console.error(`Unknown command: ${command}`);
   console.error('Run `agy-auth --help`.');

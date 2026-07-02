@@ -2,7 +2,7 @@
 
 Standalone local session manager for Google Antigravity `agy` CLI/App.
 
-`agy-auth` only manages local AGY sessions. It captures the currently active Antigravity credential from the OS keyring, stores session snapshots back into the OS keyring, and restores one snapshot when you run `agy-auth switch`. It does not open AGY, launch Antigravity, or start an AGY conversation.
+`agy-auth` manages local AGY sessions. It can run the AGY sign-in flow, capture the resulting Antigravity credential from the OS keyring, store session snapshots back into the OS keyring, and restore one snapshot when you run `agy-auth switch`.
 
 ## Install
 
@@ -30,7 +30,7 @@ service: gemini:antigravity
 account: antigravity
 ```
 
-`agy-auth login` reads the currently active AGY session credential and saves a copy under:
+`agy-auth login` runs `agy`, lets AGY complete sign-in, then reads the resulting active session credential and saves a copy under:
 
 ```text
 service: agy-auth
@@ -43,9 +43,9 @@ The registry at `~/.gemini/antigravity-cli/accounts/registry.json` stores only m
 
 ```bash
 agy-auth status
-agy-auth login --alias main  # add the currently active AGY account
-agy-auth add --alias main    # same as login
-agy-auth import --alias main # same as login
+agy-auth login --alias main   # run AGY sign-in, then save the session
+agy-auth capture --alias main # save the currently active AGY session
+agy-auth import --alias main  # same as capture
 agy-auth list             # list stored auth snapshots
 agy-auth list --refresh   # refresh active quota, then list
 agy-auth usage            # read active quota from AGY /usage
@@ -55,19 +55,17 @@ agy-auth native
 agy-auth config
 ```
 
-`agy-auth login` only captures the active local AGY account. If the device has no active account yet, sign in using AGY outside agy-auth first, then run `agy-auth login --alias <name>`.
+`agy-auth login` is the primary command for first login. It opens the normal `agy` flow. AGY shows its own sign-in state, for example `You are currently not signed in` followed by `Signing in...`. Exit AGY after sign-in; then `agy-auth` saves the resulting session snapshot.
 
-Current tested AGY builds do not expose a native `login` or `--device-auth` command in `agy --help`. `agy-auth login --device-auth` is therefore not supported; `agy-auth login` means "add the active session" only.
+Current tested AGY builds do not expose a native `login` or `--device-auth` subcommand in `agy --help`, so `agy-auth login` runs plain `agy` and captures the session after AGY exits.
 
 `agy-auth list` shows reset times as actual local date/time values, for example `18:23` or `15:12 on 7 Jul`, instead of raw relative durations such as `118h 40m`.
 
 ## Multi-Account Flow
 
-1. Login to account A in Google Antigravity or `agy`.
-2. Run `agy-auth login --alias main`.
-3. Login to account B in Google Antigravity or `agy`.
-4. Run `agy-auth login --alias backup`.
-5. Switch with `agy-auth switch main` or `agy-auth switch backup`.
+1. Run `agy-auth login --alias main` and complete AGY sign-in for account A.
+2. Run `agy-auth login --alias backup` and complete AGY sign-in for account B.
+3. Switch with `agy-auth switch main` or `agy-auth switch backup`.
 
 After `agy-auth switch <alias|email|key>`, the active AGY credential in the OS keyring is replaced with the selected snapshot. AGY CLI/App loads the selected account from that active credential.
 

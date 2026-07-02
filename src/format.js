@@ -7,7 +7,7 @@ export function printAccounts(registry) {
   console.log('     ACCOUNT                         ALIAS        AUTH     GEMINI 5H          GEMINI WEEKLY          OTHER 5H           OTHER WEEKLY           LAST REFRESH');
   console.log('--------------------------------------------------------------------------------------------------------------------------------------------------');
   if (accounts.length === 0) {
-    console.log('  -- no AGY accounts captured; run `agy-auth import`');
+    console.log('  -- no AGY sessions captured; run `agy-auth capture`');
     return;
   }
   for (const [index, account] of accounts.entries()) {

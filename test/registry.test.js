@@ -38,7 +38,7 @@ test('parses import alias', () => {
   assert.throws(() => internals.parseAlias(['--alias']), /requires a value/);
 });
 
-test('agy-auth login is a local account capture command', () => {
+test('agy-auth capture is a local session manager command', () => {
   assert.equal(typeof internals.parseAlias, 'function');
 });
 

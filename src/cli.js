@@ -1,6 +1,7 @@
 import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH, SNAPSHOT_SERVICE } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
+import { spawnSync } from 'node:child_process';
 import { readUsageFromAgy } from './usage.js';
 import {
   deleteSnapshot,
@@ -20,9 +21,9 @@ function help() {
   console.log('');
   console.log('Commands:');
   console.log('  status                  Show active AGY account and registry status');
-  console.log('  login [--alias name]    Add the currently active AGY account');
-  console.log('  add [--alias name]      Alias for login');
-  console.log('  import [--alias name]   Alias for login');
+  console.log('  login [--alias name]    Run AGY sign-in, then save the resulting session');
+  console.log('  capture [--alias name]  Capture the currently active AGY session');
+  console.log('  import [--alias name]   Alias for capture');
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh active quota, then list snapshots');
   console.log('  usage [--json]          Show active account quota and reset time');
@@ -43,6 +44,16 @@ function parseAlias(args) {
   if (index < 0) return '';
   if (!args[index + 1]) throw new Error('--alias requires a value.');
   return args[index + 1];
+}
+
+function spawnAgy(options = {}) {
+  if (process.platform === 'win32') {
+    return spawnSync('cmd.exe', ['/d', '/s', '/c', 'agy'], {
+      ...options,
+      windowsHide: options.stdio === 'inherit' ? false : true,
+    });
+  }
+  return spawnSync('agy', [], options);
 }
 
 async function status(jsonMode) {
@@ -99,7 +110,7 @@ async function captureCurrentAccount(args) {
   if (!email) {
     throw new Error(
       'Active AGY email was not detected. Sign in with AGY outside agy-auth, '
-      + 'then run `agy-auth login` to add the active session.',
+      + 'then run `agy-auth capture` to save the active session.',
     );
   }
   const secret = await readAgyCredential();
@@ -121,10 +132,10 @@ async function captureCurrentAccount(args) {
   return account;
 }
 
-async function importAccount(args, jsonMode) {
+async function captureAccount(args, jsonMode) {
   const account = await captureCurrentAccount(args);
   if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
-  else console.log(`Added AGY account: ${account.email}`);
+  else console.log(`Captured AGY session: ${account.email}`);
   return 0;
 }
 
@@ -132,8 +143,8 @@ async function login(args, jsonMode) {
   if (args.includes('--device-auth')) {
     const payload = {
       ok: false,
-      error: '`agy-auth login --device-auth` is not supported.',
-      fallback: 'agy-auth is only a session manager. Sign in with AGY outside agy-auth, then run `agy-auth login --alias <name>`.',
+      error: '`agy-auth login --device-auth` is not supported by the installed AGY CLI.',
+      fallback: 'Run `agy-auth login --alias <name>` to use the normal AGY sign-in flow.',
     };
     if (jsonMode) printJson(payload);
     else {
@@ -143,10 +154,13 @@ async function login(args, jsonMode) {
     return 2;
   }
 
-  const account = await captureCurrentAccount(args);
-  if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
-  else console.log(`Added AGY account: ${account.email}`);
-  return 0;
+  if (!jsonMode) {
+    console.log('Opening AGY sign-in flow. Exit AGY after sign-in so agy-auth can save the session.');
+  }
+  const result = spawnAgy({ stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) return result.status || 1;
+  return captureAccount(args, jsonMode);
 }
 
 async function readListRegistry() {
@@ -332,8 +346,8 @@ export async function run(argv) {
     return 0;
   }
   if (command === 'status') return status(jsonMode);
-  if (command === 'login' || command === 'add') return login(rest, jsonMode);
-  if (command === 'import') return importAccount(rest, jsonMode);
+  if (command === 'login') return login(rest, jsonMode);
+  if (command === 'capture' || command === 'import') return captureAccount(rest, jsonMode);
   if (command === 'list') return list(jsonMode, refresh);
   if (command === 'usage') return usage(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);

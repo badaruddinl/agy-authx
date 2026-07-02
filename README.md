@@ -14,6 +14,7 @@ Then run:
 
 ```bash
 agy-auth status
+agy-auth login --alias main
 agy-auth import --alias main
 agy-auth list
 agy-auth switch main
@@ -41,6 +42,7 @@ The registry at `~/.gemini/antigravity-cli/accounts/registry.json` stores only m
 
 ```bash
 agy-auth status
+agy-auth login --alias main
 agy-auth import --alias main
 agy-auth list
 agy-auth switch main
@@ -48,6 +50,10 @@ agy-auth remove main
 agy-auth native
 agy-auth config
 ```
+
+`agy-auth login` opens the installed `agy` CLI. Complete the provider login if prompted, then exit `agy`; the command captures the active account automatically.
+
+`agy-auth login --device-auth` is supported only when the installed `agy` build exposes a device-auth login mode. Current tested AGY builds do not list `login` or `--device-auth` in `agy --help`, so the command returns a clear unsupported message instead of passing an invalid flag.
 
 ## Multi-Account Flow
 

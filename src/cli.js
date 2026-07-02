@@ -1,6 +1,7 @@
 import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH, SNAPSHOT_SERVICE } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
+import { spawnSync } from 'node:child_process';
 import {
   deleteSnapshot,
   listNativeAgyCredentials,
@@ -18,6 +19,8 @@ function help() {
   console.log('');
   console.log('Commands:');
   console.log('  status                  Show active AGY account and registry status');
+  console.log('  login [--alias name]    Open agy, then capture the logged-in account');
+  console.log('  login --device-auth     Use AGY device login if the installed agy supports it');
   console.log('  import [--alias name]   Capture current AGY keyring credential');
   console.log('  list                    List captured accounts');
   console.log('  switch <query>          Restore captured account by email/alias/key');
@@ -37,6 +40,38 @@ function parseAlias(args) {
   if (index < 0) return '';
   if (!args[index + 1]) throw new Error('--alias requires a value.');
   return args[index + 1];
+}
+
+function wantsDeviceAuth(args) {
+  return args.includes('--device-auth');
+}
+
+function spawnAgy(args = [], options = {}) {
+  if (process.platform === 'win32') {
+    const command = ['agy', ...args].join(' ');
+    return spawnSync('cmd.exe', ['/d', '/s', '/c', command], {
+      ...options,
+      windowsHide: options.stdio === 'inherit' ? false : true,
+    });
+  }
+  return spawnSync('agy', args, options);
+}
+
+function agyHelpText() {
+  const result = spawnAgy(['--help'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  return `${result.stdout || ''}\n${result.stderr || ''}`;
+}
+
+function supportsAgyDeviceAuth() {
+  const help = agyHelpText();
+  return /\blogin\b/i.test(help) && /--device-auth\b/i.test(help);
+}
+
+function supportsAgyLoginSubcommand() {
+  return /\blogin\b/i.test(agyHelpText());
 }
 
 async function status(jsonMode) {
@@ -64,7 +99,7 @@ async function status(jsonMode) {
   return email ? 0 : 1;
 }
 
-async function importAccount(args, jsonMode) {
+async function captureCurrentAccount(args) {
   const alias = parseAlias(args);
   const email = await detectActiveAccount();
   if (!email) {
@@ -86,9 +121,52 @@ async function importAccount(args, jsonMode) {
   });
   registry.activeAccountKey = accountKey;
   await writeRegistry(registry);
+  return account;
+}
 
+async function importAccount(args, jsonMode) {
+  const account = await captureCurrentAccount(args);
   if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
-  else console.log(`Captured AGY account: ${email}`);
+  else console.log(`Captured AGY account: ${account.email}`);
+  return 0;
+}
+
+async function login(args, jsonMode) {
+  const useDeviceAuth = wantsDeviceAuth(args);
+  if (useDeviceAuth && !supportsAgyDeviceAuth()) {
+    const payload = {
+      ok: false,
+      error: 'The installed agy CLI does not expose login --device-auth.',
+      fallback: 'Run `agy-auth login`, complete the browser/provider login, exit agy, then the account will be captured.',
+    };
+    if (jsonMode) printJson(payload);
+    else {
+      console.log(payload.error);
+      console.log(payload.fallback);
+    }
+    return 2;
+  }
+
+  const agyArgs = [];
+  if (useDeviceAuth) {
+    agyArgs.push('login', '--device-auth');
+  } else if (supportsAgyLoginSubcommand()) {
+    agyArgs.push('login');
+  }
+
+  if (!jsonMode) {
+    console.log(agyArgs.length ? `Opening: agy ${agyArgs.join(' ')}` : 'Opening: agy');
+    console.log('Complete login if prompted, then exit agy so agy-auth can capture the account.');
+  }
+  const result = spawnAgy(agyArgs, {
+    stdio: 'inherit',
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) return result.status || 1;
+
+  const account = await captureCurrentAccount(args.filter(arg => arg !== '--device-auth'));
+  if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
+  else console.log(`Captured AGY account: ${account.email}`);
   return 0;
 }
 
@@ -199,6 +277,7 @@ export async function run(argv) {
     return 0;
   }
   if (command === 'status') return status(jsonMode);
+  if (command === 'login') return login(rest, jsonMode);
   if (command === 'import') return importAccount(rest, jsonMode);
   if (command === 'list') return list(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);
@@ -215,6 +294,7 @@ export const internals = {
   defaultRegistry,
   findAccount,
   parseAlias,
+  supportsAgyDeviceAuth,
   slug,
   upsertAccount,
 };

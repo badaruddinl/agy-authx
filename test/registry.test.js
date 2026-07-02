@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { extractAccountEmail } from '../src/agy.js';
 import { internals } from '../src/cli.js';
-import { formatLastRefresh, formatUsageColumns } from '../src/format.js';
+import { formatLastRefresh, formatResetAt, formatUsageColumns, parseRefreshDuration } from '../src/format.js';
 import { readRegistry } from '../src/registry.js';
 import { parseUsageOutput } from '../src/usage.js';
 
@@ -132,15 +132,23 @@ test('formats list usage columns', () => {
       Five Hour Limit
         Quota available
   `);
+  usage.capturedAt = '2026-07-02T09:32:00+07:00';
 
   const columns = formatUsageColumns(usage);
 
-  assert.equal(columns.geminiFiveHour, '98% (1h 51m)');
-  assert.equal(columns.geminiWeekly, '89% (118h 40m)');
+  assert.equal(columns.geminiFiveHour, '98% (11:23)');
+  assert.equal(columns.geminiWeekly, '89% (08:12 on 7 Jul)');
   assert.equal(columns.otherFiveHour, '100%');
-  assert.equal(columns.otherWeekly, '66% (120h 1m)');
+  assert.equal(columns.otherWeekly, '66% (09:33 on 7 Jul)');
 });
 
 test('formats recent refresh timestamp', () => {
   assert.equal(formatLastRefresh(new Date().toISOString()), 'Now');
+});
+
+test('parses and formats reset duration as absolute local time', () => {
+  assert.equal(parseRefreshDuration('1h 30m'), 90 * 60 * 1000);
+  assert.equal(parseRefreshDuration('2 days 3 hours 4 minutes'), ((2 * 24 * 60) + (3 * 60) + 4) * 60 * 1000);
+  assert.equal(formatResetAt('34m', '2026-07-02T09:32:00+07:00'), '10:06');
+  assert.equal(formatResetAt('25h', '2026-07-02T09:32:00+07:00'), '10:32 on 3 Jul');
 });

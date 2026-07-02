@@ -60,6 +60,8 @@ agy-auth config
 
 `agy-auth login --device-auth` is supported only when the installed `agy` build exposes a device-auth login mode. Current tested AGY builds do not list `login` or `--device-auth` in `agy --help`, so the command returns a clear unsupported message instead of passing an invalid flag.
 
+`agy-auth list` shows reset times as actual local date/time values, for example `18:23` or `15:12 on 7 Jul`, instead of raw relative durations such as `118h 40m`.
+
 ## Multi-Account Flow
 
 1. Login to account A in Google Antigravity or `agy`.

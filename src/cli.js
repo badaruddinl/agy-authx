@@ -1,7 +1,6 @@
 import { VERSION, AGY_ACCOUNT, AGY_SERVICE, REGISTRY_PATH, SNAPSHOT_SERVICE } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
-import { spawnSync } from 'node:child_process';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { readUsageFromAgy } from './usage.js';
@@ -23,10 +22,9 @@ function help() {
   console.log('');
   console.log('Commands:');
   console.log('  status                  Show active AGY account and registry status');
-  console.log('  login [--alias name]    Open native agy sign-in, then add the account');
-  console.log('  login --device-auth     Use native AGY device auth if the installed agy supports it');
-  console.log('  add [--alias name]      Add the currently active AGY account');
-  console.log('  import [--alias name]   Alias for add');
+  console.log('  login [--alias name]    Add the currently active AGY account');
+  console.log('  add [--alias name]      Alias for login');
+  console.log('  import [--alias name]   Alias for login');
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh active quota, then list snapshots');
   console.log('  usage [--json]          Show active account quota and reset time');
@@ -47,34 +45,6 @@ function parseAlias(args) {
   if (index < 0) return '';
   if (!args[index + 1]) throw new Error('--alias requires a value.');
   return args[index + 1];
-}
-
-function spawnAgy(args = [], options = {}) {
-  if (process.platform === 'win32') {
-    const command = ['agy', ...args].join(' ');
-    return spawnSync('cmd.exe', ['/d', '/s', '/c', command], {
-      ...options,
-      windowsHide: options.stdio === 'inherit' ? false : true,
-    });
-  }
-  return spawnSync('agy', args, options);
-}
-
-function agyHelpText() {
-  const result = spawnAgy(['--help'], {
-    encoding: 'utf8',
-    windowsHide: true,
-  });
-  return `${result.stdout || ''}\n${result.stderr || ''}`;
-}
-
-function supportsAgyDeviceAuth() {
-  const help = agyHelpText();
-  return /\blogin\b/i.test(help) && /--device-auth\b/i.test(help);
-}
-
-function supportsAgyLoginSubcommand() {
-  return /\blogin\b/i.test(agyHelpText());
 }
 
 async function status(jsonMode) {
@@ -130,8 +100,8 @@ async function captureCurrentAccount(args) {
   const email = await detectActiveAccount();
   if (!email) {
     throw new Error(
-      'Active AGY email was not detected. Run `agy-auth login` to open native AGY sign-in, '
-      + 'or sign in with Antigravity App first and then run `agy-auth add`.',
+      'Active AGY email was not detected. Open `agy` or Antigravity App first, complete sign-in, '
+      + 'then run `agy-auth login` to add the active account.',
     );
   }
   const secret = await readAgyCredential();
@@ -161,46 +131,21 @@ async function importAccount(args, jsonMode) {
 }
 
 async function login(args, jsonMode) {
-  const useDeviceAuth = args.includes('--device-auth');
-  const loginArgs = [];
-  if (useDeviceAuth) {
-    if (supportsAgyDeviceAuth()) {
-      loginArgs.push('login', '--device-auth');
-    } else {
-      const payload = {
-        ok: false,
-        error: 'The installed agy CLI does not expose login --device-auth.',
-        fallback: 'Run `agy-auth login` to open the native AGY sign-in flow, or sign in with Antigravity App and run `agy-auth add`.',
-      };
-      if (jsonMode) printJson(payload);
-      else {
-        console.log(payload.error);
-        console.log(payload.fallback);
-      }
-      return 2;
-    }
-  } else if (supportsAgyLoginSubcommand()) {
-    loginArgs.push('login');
-  }
-
-  if (!jsonMode) {
-    const display = loginArgs.length ? `agy ${loginArgs.join(' ')}` : 'agy';
-    console.log(`Opening native AGY sign-in: ${display}`);
-    console.log('Complete sign-in if prompted, then exit AGY so agy-auth can add the account.');
-  }
-  const result = spawnAgy(loginArgs, { stdio: 'inherit' });
-  if (result.error) {
+  if (args.includes('--device-auth')) {
     const payload = {
       ok: false,
-      error: result.error.message,
+      error: '`agy-auth login --device-auth` is not supported.',
+      fallback: 'Open `agy` or Antigravity App first, complete sign-in, then run `agy-auth login --alias <name>`.',
     };
     if (jsonMode) printJson(payload);
-    else console.error(payload.error);
-    return 1;
+    else {
+      console.log(payload.error);
+      console.log(payload.fallback);
+    }
+    return 2;
   }
-  if (result.status !== 0) return result.status || 1;
 
-  const account = await captureCurrentAccount(args.filter(arg => arg !== '--device-auth'));
+  const account = await captureCurrentAccount(args);
   if (jsonMode) printJson({ ok: true, account, registryPath: REGISTRY_PATH });
   else console.log(`Added AGY account: ${account.email}`);
   return 0;
@@ -404,8 +349,7 @@ export async function run(argv) {
     return 0;
   }
   if (command === 'status') return status(jsonMode);
-  if (command === 'login') return login(rest, jsonMode);
-  if (command === 'add') return importAccount(rest, jsonMode);
+  if (command === 'login' || command === 'add') return login(rest, jsonMode);
   if (command === 'import') return importAccount(rest, jsonMode);
   if (command === 'list') return list(jsonMode, refresh);
   if (command === 'usage') return usage(jsonMode);
@@ -423,8 +367,6 @@ export const internals = {
   defaultRegistry,
   findAccount,
   parseAlias,
-  supportsAgyDeviceAuth,
-  supportsAgyLoginSubcommand,
   slug,
   upsertAccount,
 };

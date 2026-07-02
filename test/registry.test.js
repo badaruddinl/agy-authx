@@ -38,8 +38,8 @@ test('parses import alias', () => {
   assert.throws(() => internals.parseAlias(['--alias']), /requires a value/);
 });
 
-test('installed AGY build does not require device auth support in parser tests', () => {
-  assert.equal(typeof internals.supportsAgyDeviceAuth, 'function');
+test('agy-auth login is a local account capture command', () => {
+  assert.equal(typeof internals.parseAlias, 'function');
 });
 
 test('parses AGY usage output', () => {

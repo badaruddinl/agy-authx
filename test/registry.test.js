@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { extractAccountEmail } from '../src/agy.js';
 import { internals } from '../src/cli.js';
-import { formatLastRefresh, formatResetAt, formatUsageColumns, parseRefreshDuration } from '../src/format.js';
+import { formatLastRefresh, formatResetAt, formatUsageColumns, parseRefreshDuration, printAccounts } from '../src/format.js';
 import { readRegistry } from '../src/registry.js';
 import { parseUsageOutput } from '../src/usage.js';
 
@@ -140,6 +140,30 @@ test('formats list usage columns', () => {
   assert.equal(columns.geminiWeekly, '89% (08:12 on 7 Jul)');
   assert.equal(columns.otherFiveHour, '100%');
   assert.equal(columns.otherWeekly, '66% (09:33 on 7 Jul)');
+});
+
+test('formats active uncaptured account as current auth', () => {
+  const writes = [];
+  const originalLog = console.log;
+  console.log = value => writes.push(value);
+  try {
+    printAccounts({
+      activeAccountKey: 'writer-example.com',
+      accounts: [
+        {
+          accountKey: 'writer-example.com',
+          email: 'writer@example.com',
+          alias: '',
+          hasSnapshot: false,
+          isActiveCredential: true,
+        },
+      ],
+    });
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.match(writes.join('\n'), /\*\s+01\s+writer@example\.com\s+-\s+current\s+/);
 });
 
 test('formats recent refresh timestamp', () => {

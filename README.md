@@ -15,7 +15,7 @@ Then run:
 ```bash
 agy-auth status
 agy-auth login --alias main
-agy-auth import --alias main
+agy-auth add --alias main
 agy-auth usage
 agy-auth list --refresh
 agy-auth list
@@ -31,7 +31,7 @@ service: gemini:antigravity
 account: antigravity
 ```
 
-`agy-auth import` reads that credential and saves a copy under:
+`agy-auth login` opens the native `agy` sign-in flow first, then reads that credential and saves a copy under:
 
 ```text
 service: agy-auth
@@ -44,8 +44,9 @@ The registry at `~/.gemini/antigravity-cli/accounts/registry.json` stores only m
 
 ```bash
 agy-auth status
-agy-auth login --alias main
-agy-auth import --alias main
+agy-auth login --alias main # open native agy sign-in, then add the account
+agy-auth add --alias main   # add the currently active AGY account without opening agy
+agy-auth import --alias main # same as add
 agy-auth list             # list stored auth snapshots
 agy-auth list --refresh   # refresh active quota, then list
 agy-auth usage            # read active quota from AGY /usage
@@ -56,18 +57,18 @@ agy-auth native
 agy-auth config
 ```
 
-`agy-auth login` opens the installed `agy` CLI. Complete the provider login if prompted, then exit `agy`; the command captures the active account automatically.
+`agy-auth login` opens the installed `agy` CLI. On current AGY builds, this is the native sign-in entrypoint: if the device has no local AGY account, `agy` shows its sign-in flow; if an account already exists, `agy` auto-detects it. Exit `agy` after sign-in so `agy-auth` can add the active account snapshot.
 
-`agy-auth login --device-auth` is supported only when the installed `agy` build exposes a device-auth login mode. Current tested AGY builds do not list `login` or `--device-auth` in `agy --help`, so the command returns a clear unsupported message instead of passing an invalid flag.
+Current tested AGY builds do not expose a native `login` or `--device-auth` command in `agy --help`. `agy-auth login --device-auth` returns a clear unsupported message unless a future AGY build adds that native command. Use `agy-auth login` for the current native flow.
 
 `agy-auth list` shows reset times as actual local date/time values, for example `18:23` or `15:12 on 7 Jul`, instead of raw relative durations such as `118h 40m`.
 
 ## Multi-Account Flow
 
 1. Login to account A in Google Antigravity or `agy`.
-2. Run `agy-auth import --alias main`.
+2. Run `agy-auth add --alias main`.
 3. Login to account B in Google Antigravity or `agy`.
-4. Run `agy-auth import --alias backup`.
+4. Run `agy-auth add --alias backup`.
 5. Switch with `agy-auth switch main` or `agy-auth switch backup`.
 
 Restart running AGY CLI/App sessions after switching so they reload the credential.

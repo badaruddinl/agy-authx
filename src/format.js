@@ -13,7 +13,9 @@ export function printAccounts(registry) {
   for (const [index, account] of accounts.entries()) {
     const marker = account.accountKey === registry.activeAccountKey ? '*' : ' ';
     const alias = account.alias || '-';
-    const auth = account.hasSnapshot === false ? 'missing' : 'yes';
+    const auth = account.hasSnapshot === false
+      ? (account.isActiveCredential ? 'current' : 'missing')
+      : 'yes';
     const usage = formatUsageColumns(account.usage);
     const refreshed = formatLastRefresh(account.usageAt || account.usage?.capturedAt);
     console.log(

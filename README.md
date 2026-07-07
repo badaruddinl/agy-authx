@@ -118,6 +118,12 @@ npm run lint
 npm pack --dry-run
 ```
 
+Release checklist:
+
+- Update `CHANGELOG.md` for the version being released.
+- Ensure GitHub release notes summarize the same version.
+- Ensure the npm README remains install-focused.
+
 ## License
 
 MIT

@@ -19,6 +19,16 @@ test('extracts latest AGY account email from logs', () => {
   assert.equal(email, 'writer@example.com');
 });
 
+test('package exposes agy-authx and agy-auth commands through the agy-authx entrypoint', async () => {
+  const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8'));
+
+  assert.equal(packageJson.version, '0.1.18');
+  assert.deepEqual(packageJson.bin, {
+    'agy-authx': 'bin/agy-authx.js',
+    'agy-auth': 'bin/agy-authx.js',
+  });
+});
+
 test('matches accounts by email alias and key', () => {
   const registry = {
     activeAccountKey: 'writer-example.com',

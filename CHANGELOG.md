@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.18 - 2026-07-07
+
+### Changed
+
+- Restored the `agy-auth` command as a compatibility alias for `agy-authx`.
+- Both `agy-auth` and `agy-authx` now run the same `agy-authx` entrypoint.
+
 ## 0.1.17 - 2026-07-07
 
 ### Fixed

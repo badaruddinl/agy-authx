@@ -2,7 +2,7 @@
 
 Local multi-account session manager for Google Antigravity `agy` CLI/App.
 
-Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command.
+Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. `agy-auth` is also installed as a compatibility alias and runs the same entrypoint.
 
 ## Install
 
@@ -12,10 +12,11 @@ npm install -g @badaruddinl/agy-authx
 
 This package is lightweight: no npm runtime dependencies and no compiled addon install step.
 
-Installing `@badaruddinl/agy-authx` exposes one command:
+Installing `@badaruddinl/agy-authx` exposes two commands backed by the same entrypoint:
 
 ```bash
 agy-authx --version
+agy-auth --version
 ```
 
 ## Quick Start

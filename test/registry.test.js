@@ -247,6 +247,16 @@ test('extracts AGY authorization code from login output', () => {
   `), '4/0AdkVLPxMUWqkPAF9PMTQqTQXej-jVUT75pLdS82gRGdY');
 });
 
+test('detects current AGY authorization code prompt wording', () => {
+  assert.equal(loginInternals.isAuthorizationCodePrompt(`
+    Waiting for authentication (timeout 30s)...
+    Or, paste the authorization code here and press Enter:
+  `), true);
+  assert.equal(loginInternals.isAuthorizationCodePrompt(`
+    If you aren't automatically redirected, paste the authorization code below:
+  `), true);
+});
+
 test('parses AGY usage output', () => {
   const usage = parseUsageOutput(`
     Account: writer@example.com

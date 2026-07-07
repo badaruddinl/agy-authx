@@ -25,6 +25,10 @@ export async function detectActiveAccount() {
 }
 
 export async function detectActiveAccountSince(sinceMs = 0) {
+  return extractAccountEmail(await readAgyLogsSince(sinceMs));
+}
+
+export async function readAgyLogsSince(sinceMs = 0) {
   const chunks = [];
   await pushLogIfRecent(chunks, CLI_LOG, sinceMs);
   try {
@@ -45,7 +49,7 @@ export async function detectActiveAccountSince(sinceMs = 0) {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  return extractAccountEmail(chunks.join('\n'));
+  return chunks.join('\n');
 }
 
 async function pushLogIfRecent(chunks, filePath, sinceMs) {

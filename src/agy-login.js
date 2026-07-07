@@ -1,6 +1,6 @@
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { detectActiveAccountSince } from './agy.js';
+import { detectActiveAccountSince, readAgyLogsSince } from './agy.js';
 import { spawnAgyProcess } from './agy-process.js';
 import { KeyringError, readAgyCredential } from './keyring.js';
 
@@ -23,11 +23,14 @@ export async function runAgyLogin(options = {}) {
     let settled = false;
     let signedInEmail = '';
     let credentialPoll = null;
+    let logPoll = null;
     let waitingShown = false;
 
     const cleanup = () => {
+      clearTimeout(timeout);
       rl.close();
       if (credentialPoll) clearInterval(credentialPoll);
+      if (logPoll) clearInterval(logPoll);
       try {
         terminal.kill();
       } catch {
@@ -66,19 +69,19 @@ export async function runAgyLogin(options = {}) {
       settle(null, { ok: true, email });
     };
 
-    const startCredentialPolling = () => {
-      if (credentialPoll) return;
-      if (!waitingShown) {
+    const startCredentialPolling = ({ announce = true } = {}) => {
+      if (announce && !waitingShown) {
         waitingShown = true;
         console.log('Waiting for AGY to write the authenticated credential...');
       }
+      if (credentialPoll) return;
       credentialPoll = setInterval(() => {
         finishFromCredential().catch(settle);
       }, 1000);
       finishFromCredential().catch(settle);
     };
 
-    terminal.onData(data => {
+    const appendAndParse = data => {
       buffer = `${buffer}${cleanTerminal(data)}`.slice(-20000);
       parseLoginOutput({
         buffer,
@@ -99,10 +102,22 @@ export async function runAgyLogin(options = {}) {
           set signedInEmail(value) { signedInEmail = value; },
         },
       }).catch(settle);
-    });
+    };
+
+    startCredentialPolling({ announce: false });
+    logPoll = setInterval(() => {
+      readAgyLogsSince(startedAt - 3000)
+        .then(logs => {
+          if (!logs || settled) return;
+          appendAndParse(logs);
+          return finishFromCredential();
+        })
+        .catch(settle);
+    }, 1000);
+
+    terminal.onData(appendAndParse);
 
     terminal.onExit(({ exitCode }) => {
-      clearTimeout(timeout);
       if (exitCode === 0) {
         settle(null, { ok: true, email: signedInEmail || extractSignedInEmail(buffer) });
       } else {
@@ -196,7 +211,7 @@ async function parseLoginOutput({ buffer, terminal, rl, method, startCredentialP
     }
   }
 
-  if (!state.codeRequested && /paste the authorization code below/i.test(buffer)) {
+  if (!state.codeRequested && isAuthorizationCodePrompt(buffer)) {
     state.codeRequested = true;
     const detectedCode = extractAuthorizationCode(buffer);
     if (detectedCode) {
@@ -271,6 +286,10 @@ function extractAuthorizationCode(buffer) {
   return match ? match[0] : '';
 }
 
+function isAuthorizationCodePrompt(buffer) {
+  return /paste (the )?authorization code (below|here)/i.test(buffer);
+}
+
 function normalizeLoginMethod(method = 'oauth') {
   if (method === 'oauth' || method === 'cloud-project') return method;
   throw new Error(`Unsupported AGY login method: ${method}`);
@@ -288,6 +307,7 @@ export const internals = {
   extractUrlFromOscPayload,
   formatTerminalLink,
   extractSignedInEmail,
+  isAuthorizationCodePrompt,
   isSignedIn,
   normalizeLoginMethod,
   readAgyAccount,

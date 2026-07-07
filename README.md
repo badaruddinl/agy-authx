@@ -2,7 +2,7 @@
 
 Standalone local session manager for Google Antigravity `agy` CLI/App.
 
-Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. `agy-authx` saves multiple local AGY sessions in your operating-system keyring, lets you switch between them, and keeps a small registry at `~/.gemini/antigravity-cli/accounts/registry.json`.
+Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. The package also keeps the legacy `agy-auth` command available for compatibility. `agy-authx` saves multiple local AGY sessions in your operating-system keyring, lets you switch between them, and keeps a small registry at `~/.gemini/antigravity-cli/accounts/registry.json`.
 
 ## Install
 
@@ -11,6 +11,13 @@ npm install -g @badaruddinl/agy-authx
 ```
 
 The package has no npm runtime dependencies and no native addon install step.
+
+Installing `@badaruddinl/agy-authx` exposes both commands:
+
+```bash
+agy-authx --version
+agy-auth --version
+```
 
 Use one runtime consistently:
 

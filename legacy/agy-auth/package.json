@@ -1,0 +1,46 @@
+{
+  "name": "@badaruddinl/agy-auth",
+  "version": "0.1.17",
+  "description": "Compatibility bridge package for @badaruddinl/agy-authx.",
+  "type": "module",
+  "bin": {
+    "agy-auth": "bin/agy-auth.js",
+    "agy-authx": "bin/agy-authx.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall-warning.js"
+  },
+  "keywords": [
+    "antigravity",
+    "agy",
+    "cli",
+    "auth",
+    "keyring",
+    "bridge"
+  ],
+  "author": "Badaruddin Luthfi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/badaruddinl/agy-authx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/badaruddinl/agy-authx/issues"
+  },
+  "homepage": "https://github.com/badaruddinl/agy-authx#readme",
+  "dependencies": {
+    "@badaruddinl/agy-authx": "0.1.17"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

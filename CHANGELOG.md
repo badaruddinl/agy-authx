@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.23 - 2026-07-07
+
+### Fixed
+
+- Fixed Google OAuth token exchange by using the full AGY client secret from the installed AGY binary instead of truncating it.
+
 ## 0.1.22 - 2026-07-07
 
 ### Fixed

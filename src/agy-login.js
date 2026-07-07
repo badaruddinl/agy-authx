@@ -525,8 +525,7 @@ export async function resolveGoogleOAuthConfig() {
     const binary = await fs.readFile(executable);
     const text = binary.toString('latin1');
     const clientIds = [...new Set(text.match(/\d+-[a-z0-9]+\.apps\.googleusercontent\.com/gi) || [])];
-    const clientSecrets = [...new Set(text.match(/GOCSPX-[A-Za-z0-9_-]{12,}/g) || [])]
-      .map(secret => secret.slice(0, 35));
+    const clientSecrets = [...new Set(text.match(/GOCSPX-[A-Za-z0-9_-]{12,}/g) || [])];
     if (!clientIds[0] || !clientSecrets.length) {
       throw new Error(`AGY Google OAuth client config was not detected in ${executable}.`);
     }
@@ -720,6 +719,7 @@ export const internals = {
   extractGoogleAuthUrl,
   extractOAuthCallbackCode,
   extractUrlFromOscPayload,
+  exchangeOAuthCode,
   formatTerminalLink,
   extractSignedInEmail,
   isAuthorizationCodePrompt,

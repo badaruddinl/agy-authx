@@ -1,10 +1,10 @@
 {
-  "name": "@badaruddinl/agy-auth",
-  "version": "0.1.14",
-  "description": "Local Google Antigravity session manager for the agy CLI and App.",
+  "name": "@badaruddinl/agy-authx",
+  "version": "0.1.15",
+  "description": "agy-authx local Google Antigravity session manager for the agy CLI and App.",
   "type": "module",
   "bin": {
-    "agy-auth": "bin/agy-auth.js"
+    "agy-authx": "bin/agy-auth.js"
   },
   "files": [
     "bin",
@@ -15,6 +15,8 @@
   "scripts": {
     "test": "node --test",
     "lint": "node scripts/check-syntax.js",
+    "prepack": "node scripts/pack-readme.js prepack",
+    "postpack": "node scripts/pack-readme.js postpack",
     "pack:dry": "npm pack --dry-run"
   },
   "keywords": [
@@ -28,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/badaruddinl/agy-auth.git"
+    "url": "git+https://github.com/badaruddinl/agy-authx.git"
   },
   "bugs": {
-    "url": "https://github.com/badaruddinl/agy-auth/issues"
+    "url": "https://github.com/badaruddinl/agy-authx/issues"
   },
-  "homepage": "https://github.com/badaruddinl/agy-auth#readme",
+  "homepage": "https://github.com/badaruddinl/agy-authx#readme",
   "dependencies": {},
   "engines": {
     "node": ">=18"

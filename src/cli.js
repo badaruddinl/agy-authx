@@ -16,7 +16,7 @@ import {
 import { defaultRegistry, findAccount, readRegistry, slug, upsertAccount, writeRegistry } from './registry.js';
 
 function help() {
-  console.log(`agy-auth ${VERSION}`);
+  console.log(`agy-authx ${VERSION}`);
   console.log('');
   console.log('Local Google Antigravity session manager for agy CLI/App.');
   console.log('');
@@ -25,18 +25,20 @@ function help() {
   console.log('  login [--alias name]    Run AGY sign-in, then save the resulting session');
   console.log('  login --oauth           Use Google OAuth login method (default)');
   console.log('  login --cloud-project   Use Google Cloud project login method');
+  console.log('  login --activate        Keep the newly logged-in account active');
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh quota for all snapshots, then list');
   console.log('  usage [--json]          Show active account quota and reset time');
   console.log('  switch <query>          Switch active AGY session by email/alias/key');
-  console.log('  verify                  Verify agy-auth active account matches native agy');
+  console.log('  verify                  Verify agy-authx active account matches native agy');
   console.log('  remove <query|--all>    Remove saved snapshots');
   console.log('  --version, -V           Show version');
   console.log('');
   console.log('Options:');
   console.log('  --json                  Print JSON output');
   console.log('');
-  console.log('Install: npm install -g @badaruddinl/agy-auth');
+  console.log('Install: npm install -g @badaruddinl/agy-authx');
+  console.log('Run: agy-authx <command>');
 }
 
 function parseAlias(args) {
@@ -55,6 +57,15 @@ function parseLoginMethod(args) {
 
 function stripLoginMethodArgs(args) {
   return args.filter(arg => !['--oauth', '--cloud-project', '--gcp', '--google-cloud-project'].includes(arg));
+}
+
+function shouldActivateLogin(args) {
+  return args.some(arg => ['--activate', '--active', '--use', '--switch'].includes(arg));
+}
+
+function stripLoginControlArgs(args) {
+  return stripLoginMethodArgs(args)
+    .filter(arg => !['--activate', '--active', '--use', '--switch'].includes(arg));
 }
 
 function sameEmail(left, right) {
@@ -84,7 +95,7 @@ async function status(jsonMode) {
     console.log(`active account key: ${registry.activeAccountKey || '-'}`);
     console.log(`agy credential: service=${AGY_SERVICE}, account=${AGY_ACCOUNT}`);
     console.log(`registry: ${REGISTRY_PATH}`);
-    if (sync.repaired) console.log('active credential: repaired from selected agy-auth session');
+    if (sync.repaired) console.log('active credential: repaired from selected agy-authx session');
   }
   return email ? 0 : 1;
 }
@@ -159,8 +170,8 @@ async function captureCurrentAccount(args, emailOverride = '') {
   const email = emailOverride || await detectActiveAccount();
   if (!email) {
     throw new Error(
-      'Active AGY email was not detected. Sign in with AGY outside agy-auth, '
-      + 'then run `agy-auth login` to save the active session.',
+      'Active AGY email was not detected. Sign in with AGY outside agy-authx, '
+      + 'then run `agy-authx login` to save the active session.',
     );
   }
   const secret = await readAgyCredential();
@@ -186,8 +197,8 @@ async function login(args, jsonMode) {
   if (args.includes('--device-auth')) {
     const payload = {
       ok: false,
-      error: '`agy-auth login --device-auth` is not supported by the installed AGY CLI.',
-      fallback: 'Run `agy-auth login --alias <name>` to use the normal AGY sign-in flow.',
+      error: '`agy-authx login --device-auth` is not supported by the installed AGY CLI.',
+      fallback: 'Run `agy-authx login --alias <name>` to use the normal AGY sign-in flow.',
     };
     if (jsonMode) printJson(payload);
     else {
@@ -198,7 +209,8 @@ async function login(args, jsonMode) {
   }
 
   const loginMethod = parseLoginMethod(args);
-  const captureArgs = stripLoginMethodArgs(args);
+  const activateNewSession = shouldActivateLogin(args);
+  const captureArgs = stripLoginControlArgs(args);
   const previousRegistry = await readRegistry();
   const previousActiveKey = previousRegistry.activeAccountKey || null;
   let previousSecret = null;
@@ -210,7 +222,7 @@ async function login(args, jsonMode) {
     if (!(error instanceof KeyringError)) throw error;
   }
 
-  if (!jsonMode) console.log('Starting native agy-auth login...');
+  if (!jsonMode) console.log('Starting native agy-authx login...');
   let loginResult = null;
   try {
     loginResult = await runAgyNativeLogin({ method: loginMethod });
@@ -221,17 +233,20 @@ async function login(args, jsonMode) {
 
   try {
     const account = await captureCurrentAccount(captureArgs, loginResult?.email || '');
-    await restoreActiveSession(previousActiveKey, previousSecret);
+    if (!activateNewSession) await restoreActiveSession(previousActiveKey, previousSecret);
+    else await assertActiveCredentialMatches(account.accountKey);
     if (jsonMode) printJson({
       ok: true,
       account,
       registryPath: REGISTRY_PATH,
-      activeAccountKey: previousActiveKey || account.accountKey,
-      activeSessionPreserved: Boolean(previousSecret && previousActiveKey),
+      activeAccountKey: activateNewSession ? account.accountKey : previousActiveKey || account.accountKey,
+      activeSessionActivated: activateNewSession,
+      activeSessionPreserved: !activateNewSession && Boolean(previousSecret && previousActiveKey),
     });
     else {
       console.log(`Captured AGY session: ${account.email}`);
-      if (previousSecret && previousActiveKey) console.log('Active AGY session preserved. Use `agy-auth switch` to activate the new session.');
+      if (activateNewSession) console.log('Active AGY session set to the newly logged-in account.');
+      else if (previousSecret && previousActiveKey) console.log('Active AGY session preserved. Use `agy-authx switch` to activate the new session.');
     }
     return 0;
   } catch (error) {
@@ -454,7 +469,7 @@ async function verify(jsonMode) {
   if (!activeAccount) {
     const payload = {
       ok: false,
-      error: 'No active account is selected in agy-auth.',
+      error: 'No active account is selected in agy-authx.',
       activeAccountKey: registry.activeAccountKey || null,
     };
     if (jsonMode) printJson(payload);
@@ -465,7 +480,7 @@ async function verify(jsonMode) {
   if (!sync.matched) {
     const payload = {
       ok: false,
-      error: sync.error || 'Active AGY credential does not match the selected agy-auth session.',
+      error: sync.error || 'Active AGY credential does not match the selected agy-authx session.',
       activeAccountEmail: activeAccount.email,
       activeAccountKey: activeAccount.accountKey,
       credentialMatches: false,
@@ -475,7 +490,7 @@ async function verify(jsonMode) {
     };
     if (jsonMode) printJson(payload);
     else {
-      console.log(`agy-auth active : ${activeAccount.email}`);
+    console.log(`agy-authx active: ${activeAccount.email}`);
       console.log('active credential: mismatch');
       console.log(`error           : ${payload.error}`);
     }
@@ -501,7 +516,7 @@ async function verify(jsonMode) {
   if (jsonMode) {
     printJson(payload);
   } else {
-    console.log(`agy-auth active : ${payload.activeAccountEmail}`);
+    console.log(`agy-authx active: ${payload.activeAccountEmail}`);
     const credentialState = payload.activeCredentialRepaired
       ? 'repaired from selected snapshot'
       : 'matches selected snapshot';
@@ -550,7 +565,7 @@ export async function run(argv) {
     return 0;
   }
   if (command === '--version' || command === '-V') {
-    console.log(`agy-auth ${VERSION}`);
+    console.log(`agy-authx ${VERSION}`);
     return 0;
   }
   if (command === 'status') return status(jsonMode);
@@ -562,7 +577,7 @@ export async function run(argv) {
   if (command === 'remove') return remove(rest, jsonMode);
 
   console.error(`Unknown command: ${command}`);
-  console.error('Run `agy-auth --help`.');
+  console.error('Run `agy-authx --help`.');
   return 2;
 }
 
@@ -572,6 +587,8 @@ export const internals = {
   parseAlias,
   parseLoginMethod,
   sameEmail,
+  shouldActivateLogin,
+  stripLoginControlArgs,
   stripLoginMethodArgs,
   slug,
   upsertAccount,

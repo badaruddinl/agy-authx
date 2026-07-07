@@ -1,113 +1,98 @@
-# agy-auth
+# agy-authx
 
 Standalone local session manager for Google Antigravity `agy` CLI/App.
 
-`agy-auth` manages local AGY sessions. It can run the AGY sign-in flow, save the resulting Antigravity credential from the OS keyring, store session snapshots back into the OS keyring, and restore one snapshot when you run `agy-auth switch`.
+Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. `agy-authx` saves multiple local AGY sessions in your operating-system keyring, lets you switch between them, and keeps a small registry at `~/.gemini/antigravity-cli/accounts/registry.json`.
 
 ## Install
 
 ```bash
-npm install -g @badaruddinl/agy-auth
+npm install -g @badaruddinl/agy-authx
 ```
 
-The package has no npm runtime dependencies or native addon install step.
+The package has no npm runtime dependencies and no native addon install step.
 
-Then run:
+Use one runtime consistently:
+
+- Windows AGY/App: run `agy-authx.cmd` from PowerShell or CMD.
+- WSL/Linux AGY: install Node and `agy-authx` inside WSL/Linux.
+- Do not install with Windows Node and execute the Windows shim as a Linux command from WSL.
+
+## Commands
 
 ```bash
-agy-auth status
-agy-auth login --alias main
-agy-auth login --oauth --alias main
-agy-auth login --cloud-project --alias work
-agy-auth usage
-agy-auth verify
-agy-auth list --refresh
-agy-auth list
-agy-auth switch main
+agy-authx status
+agy-authx login --alias main
+agy-authx login --activate --alias main
+agy-authx login --cloud-project --alias work
+agy-authx list
+agy-authx list --refresh
+agy-authx usage
+agy-authx switch main
+agy-authx verify
+agy-authx remove main
 ```
+
+`agy-authx login` saves the newly logged-in account but preserves the previously active AGY session when one exists. Use `agy-authx login --activate` when you want the newly logged-in account to become active immediately.
+
+`agy-authx list` adapts to narrow terminals, keeps each account on one row, and highlights the selected active account when color output is available.
 
 ## How It Works
 
-Antigravity stores the local CLI credential in the operating-system keyring. On the tested Windows install, the native entry is:
+Antigravity stores the local CLI credential in the operating-system keyring. On the tested Windows install, the active AGY entry is:
 
 ```text
 service: gemini:antigravity
 account: antigravity
 ```
 
-`agy-auth login` temporarily clears the active AGY credential, runs `agy`, lets AGY complete sign-in, then reads the resulting active session credential and saves a copy under:
+`agy-authx login` temporarily clears the active AGY credential, runs `agy`, lets AGY complete sign-in, reads the resulting active session credential, and stores a snapshot under the `agy-auth` service.
 
-```text
-service: agy-auth
-account: <saved-email>
-```
-
-The registry at `~/.gemini/antigravity-cli/accounts/registry.json` stores only metadata such as email, alias, and timestamps. The secret remains in the OS keyring.
-
-## Commands
-
-```bash
-agy-auth status
-agy-auth login --alias main   # run AGY sign-in with Google OAuth, then save the session
-agy-auth login --oauth --alias main # same as login
-agy-auth login --cloud-project --alias work # use AGY login method option 2
-agy-auth list             # list stored auth snapshots
-agy-auth list --refresh   # refresh quota for all snapshots, then list
-agy-auth usage            # read active quota from AGY /usage
-agy-auth switch main      # switch by alias/email/key
-agy-auth verify           # prove agy-auth active account matches native agy
-agy-auth remove main
-```
-
-`agy-auth login` is the primary command for first login or adding another account. It runs the native AGY login flow behind the agy-auth command and parses AGY's login output. By default it selects AGY login method 1, Google OAuth. Use `agy-auth login --cloud-project` for AGY login method 2, Google Cloud project. When OAuth is used, agy-auth shows the authorization URL and asks for the authorization code in its own prompt.
-
-This does not replace existing `agy-auth` snapshots. Existing saved sessions remain in `agy-auth list` and can still be selected with `agy-auth switch <alias|email|key>`. If an account was active before `agy-auth login`, that active session is restored after the new login is saved. The newly logged-in account is saved to the list but is not made active until you run `agy-auth switch`.
-
-Current tested AGY builds do not expose a native `login` or `--device-auth` subcommand in `agy --help`, so `agy-auth login` runs plain `agy` and saves the session after AGY exits.
-
-`agy-auth list` shows reset times as actual local date/time values, for example `18:23` or `15:12 on 7 Jul`, instead of raw relative durations such as `118h 40m`.
-
-`agy-auth list --refresh` temporarily loads each saved snapshot, reads AGY `/usage`, stores the quota data for that account, and then restores the previously active AGY credential.
-
-`agy-auth verify` checks the active account end to end:
-
-1. The selected `agy-auth` registry account.
-2. The active OS keyring credential at `gemini:antigravity / antigravity`.
-3. The email shown by a fresh native `agy` process.
-
-The command fails if the selected snapshot and active AGY credential differ, or if native `agy` loads a different email.
+The registry stores metadata only: email, alias, timestamps, and cached usage. Secrets stay in the OS keyring.
 
 ## Multi-Account Flow
 
-1. Run `agy-auth login --alias main` and complete AGY sign-in for account A.
-2. Run `agy-auth login --alias backup` and complete AGY sign-in for account B. Account A stays active after this save.
-3. Switch with `agy-auth switch main` or `agy-auth switch backup`.
+1. Run `agy-authx login --alias main` and complete AGY sign-in for account A.
+2. Run `agy-authx login --alias backup` and complete AGY sign-in for account B. Account A stays active after this save.
+3. Switch with `agy-authx switch main` or `agy-authx switch backup`.
 
-After `agy-auth switch <alias|email|key>`, the active AGY credential in the OS keyring is replaced with the selected snapshot. AGY CLI/App loads the selected account from that active credential.
+If you want account B active immediately, run:
+
+```bash
+agy-authx login --activate --alias backup
+```
 
 For Antigravity App, the selected account is guaranteed at the shared credential layer. If the app was already open before switching, restart or reload the app session so it reads the newly selected credential.
 
-## Cross-Platform Notes
+## Keyring Requirements
 
 This package stores credentials through the operating-system keyring without npm native addons:
 
-- Windows Credential Manager
-- macOS Keychain via the built-in `security` command
-- Linux Secret Service / libsecret via `secret-tool`
+- Windows: Credential Manager, accessed through PowerShell and the WinCred API.
+- macOS: Keychain, accessed through the built-in `security` command.
+- Linux: Secret Service / libsecret, accessed through `secret-tool`.
 
-AGY must use the same OS keyring service/account names for switching to work. If a future AGY release changes those names, override them with:
+On Linux, `secret-tool` usually comes from the `libsecret-tools` package:
+
+```bash
+sudo apt install libsecret-tools
+```
+
+`secret-tool` is only the command-line client. A Secret Service provider must also be running, such as GNOME Keyring or KWallet. Desktop Linux sessions usually already have one. Headless servers often need extra setup for a keyring daemon.
+
+On macOS, no extra package is normally required because `/usr/bin/security` is built in. macOS may still ask for Keychain access permission the first time credentials are read or written.
+
+If a future AGY release changes the active credential names, override them with:
 
 ```bash
 AGY_AUTH_TARGET_SERVICE="gemini:antigravity"
 AGY_AUTH_TARGET_ACCOUNT="antigravity"
-agy-auth status
+agy-authx status
 ```
 
-On Linux, make sure `secret-tool` and a Secret Service provider are available. On headless servers this usually requires a keyring daemon such as GNOME Keyring or KWallet.
+## Npm README
 
-## Scope
-
-This tool is for local desktop or self-host workflows. It is not a public SaaS multi-user auth layer. For public multi-user systems, isolate each AGY runtime/profile or use a local agent per user/device.
+The npm package intentionally uses a shorter install-focused README. The GitHub README stays more complete and includes development notes. During `npm pack`/`npm publish`, `scripts/pack-readme.js` temporarily swaps in `scripts/npm-readme.md` for the package tarball and restores this README afterward.
 
 ## Development
 
@@ -116,6 +101,14 @@ npm install
 npm test
 npm run lint
 npm run pack:dry
+```
+
+Before release, verify:
+
+```bash
+npm test
+npm run lint
+npm pack --dry-run
 ```
 
 ## License

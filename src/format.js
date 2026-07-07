@@ -9,11 +9,12 @@ export function printAccounts(registry, options = {}) {
   console.log(renderAccountHeader(layout, width));
   console.log('-'.repeat(width));
   if (accounts.length === 0) {
-    console.log(fitText('  -- no AGY sessions saved; run `agy-auth login`', width));
+    console.log(fitText('  -- no AGY sessions saved; run `agy-authx login`', width));
     return;
   }
   for (const [index, account] of accounts.entries()) {
-    const marker = account.accountKey === registry.activeAccountKey ? '*' : ' ';
+    const active = account.accountKey === registry.activeAccountKey;
+    const marker = active ? '*' : ' ';
     const alias = account.alias || '-';
     const auth = account.hasSnapshot === false
       ? (account.isActiveCredential ? 'current' : 'missing')
@@ -21,7 +22,7 @@ export function printAccounts(registry, options = {}) {
     const usage = formatUsageColumns(account.usage);
     const refreshed = formatLastRefresh(account.usageAt || account.usage?.capturedAt);
     const compact = formatCompactUsage(account.usage);
-    console.log(renderAccountRow(layout, width, {
+    const row = renderAccountRow(layout, width, {
       marker,
       number: String(index + 1).padStart(2, '0'),
       account: String(account.email || account.accountKey || '-'),
@@ -35,7 +36,8 @@ export function printAccounts(registry, options = {}) {
       geminiPair: compact.gemini,
       otherPair: compact.other,
       refreshed,
-    }));
+    });
+    console.log(active ? highlightActiveRow(row, options) : row);
   }
 }
 
@@ -173,6 +175,19 @@ function formatUsagePair(group) {
 function formatPercent(limit) {
   if (!limit) return '-';
   return Number.isFinite(limit.remainingPercent) ? `${limit.remainingPercent}%` : '?';
+}
+
+function highlightActiveRow(row, options = {}) {
+  if (!shouldUseColor(options)) return row;
+  return `\x1b[1;36m${row}\x1b[0m`;
+}
+
+function shouldUseColor(options = {}) {
+  if (options.color === false) return false;
+  if (options.color === true) return true;
+  if (process.env.NO_COLOR) return false;
+  if (process.env.FORCE_COLOR && process.env.FORCE_COLOR !== '0') return true;
+  return Boolean(process.stdout.isTTY);
 }
 
 export function formatUsageColumns(usage) {

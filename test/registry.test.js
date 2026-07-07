@@ -39,7 +39,7 @@ test('parses login alias', () => {
   assert.throws(() => internals.parseAlias(['--alias']), /requires a value/);
 });
 
-test('agy-auth login is a local session manager command', () => {
+test('agy-authx login is a local session manager command', () => {
   assert.equal(typeof internals.parseAlias, 'function');
 });
 
@@ -66,12 +66,15 @@ test('matches active AGY account emails case-insensitively', () => {
   assert.equal(internals.sameEmail('', 'writer@example.com'), false);
 });
 
-test('parses agy-auth login method flags', () => {
+test('parses agy-authx login method flags', () => {
   assert.equal(internals.parseLoginMethod([]), 'oauth');
   assert.equal(internals.parseLoginMethod(['--oauth']), 'oauth');
   assert.equal(internals.parseLoginMethod(['--cloud-project']), 'cloud-project');
   assert.equal(internals.parseLoginMethod(['--gcp']), 'cloud-project');
   assert.deepEqual(internals.stripLoginMethodArgs(['--cloud-project', '--alias', 'main']), ['--alias', 'main']);
+  assert.equal(internals.shouldActivateLogin(['--activate']), true);
+  assert.equal(internals.shouldActivateLogin(['--alias', 'main']), false);
+  assert.deepEqual(internals.stripLoginControlArgs(['--activate', '--cloud-project', '--alias', 'main']), ['--alias', 'main']);
   assert.throws(() => internals.parseLoginMethod(['--oauth', '--cloud-project']), /Choose only one login method/);
 });
 
@@ -331,10 +334,37 @@ test('formats account list within a narrow terminal without wrapping rows', () =
     console.log = originalLog;
   }
 
-  assert.ok(writes.every(line => line.length <= 64));
+  assert.ok(writes.every(line => stripAnsi(line).length <= 64));
   assert.equal(writes.filter(line => /\*\s+01\s+/.test(line)).length, 1);
   assert.match(writes.join('\n'), /very\.long\.account\.name/);
 });
+
+test('highlights the active account row when color is enabled', () => {
+  const writes = [];
+  const originalLog = console.log;
+  console.log = value => writes.push(String(value));
+  try {
+    printAccounts({
+      activeAccountKey: 'writer@example.com',
+      accounts: [
+        {
+          accountKey: 'writer@example.com',
+          email: 'writer@example.com',
+          alias: 'main',
+          hasSnapshot: true,
+        },
+      ],
+    }, { columns: 80, color: true });
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.match(writes.find(line => line.includes('writer@example.com')), /^\x1b\[1;36m\*/);
+});
+
+function stripAnsi(value) {
+  return String(value).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+}
 
 test('formats recent refresh timestamp', () => {
   assert.equal(formatLastRefresh(new Date().toISOString()), 'Now');

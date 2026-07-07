@@ -1,7 +1,7 @@
-import pty from '@homebridge/node-pty-prebuilt-multiarch';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { detectActiveAccountSince } from './agy.js';
+import { spawnAgyProcess } from './agy-process.js';
 import { KeyringError, readAgyCredential } from './keyring.js';
 
 const ANSI_PATTERN = /\x1b\[[0-?]*[ -/]*[@-~]/g;
@@ -13,14 +13,7 @@ export async function runAgyNativeLogin(options = {}) {
   const method = normalizeLoginMethod(options.method);
   const startedAt = Date.now();
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'cmd.exe' : 'agy';
-    const args = process.platform === 'win32' ? ['/d', '/s', '/c', 'agy'] : [];
-    const terminal = pty.spawn(command, args, {
-      cols: 120,
-      rows: 32,
-      cwd: process.cwd(),
-      env: process.env,
-    });
+    const terminal = spawnAgyProcess();
     const rl = readline.createInterface({ input, output });
     let buffer = '';
     let methodSelected = false;
@@ -121,14 +114,7 @@ export async function runAgyNativeLogin(options = {}) {
 
 export function readNativeAgyAccount({ timeoutMs = 15000 } = {}) {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'cmd.exe' : 'agy';
-    const args = process.platform === 'win32' ? ['/d', '/s', '/c', 'agy'] : [];
-    const terminal = pty.spawn(command, args, {
-      cols: 120,
-      rows: 32,
-      cwd: process.cwd(),
-      env: process.env,
-    });
+    const terminal = spawnAgyProcess();
     let buffer = '';
     let exitSent = false;
     let settled = false;
@@ -158,7 +144,7 @@ export function readNativeAgyAccount({ timeoutMs = 15000 } = {}) {
     const requestExit = () => {
       if (exitSent) return;
       exitSent = true;
-      terminal.write('/exit\r');
+      terminal.write('/exit\n');
     };
 
     const timer = setTimeout(() => {
@@ -191,10 +177,10 @@ async function parseLoginOutput({ buffer, terminal, rl, method, startCredentialP
     state.methodSelected = true;
     if (method === 'cloud-project') {
       console.log('AGY login method: Google Cloud project');
-      terminal.write('\x1b[B\r');
+      terminal.write('2\n');
     } else {
       console.log('AGY login method: Google OAuth');
-      terminal.write('\r');
+      terminal.write('1\n');
     }
   }
 
@@ -221,7 +207,7 @@ async function parseLoginOutput({ buffer, terminal, rl, method, startCredentialP
     const code = await rl.question('Authorization code: ');
     const trimmedCode = code.trim();
     if (trimmedCode) console.log(`Authorization code submitted: ${trimmedCode}`);
-    terminal.write(`${trimmedCode}\r`);
+    terminal.write(`${trimmedCode}\n`);
     startCredentialPolling();
   }
 

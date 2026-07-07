@@ -1,6 +1,6 @@
 {
   "name": "@badaruddinl/agy-auth",
-  "version": "0.1.12",
+  "version": "0.1.14",
   "description": "Local Google Antigravity session manager for the agy CLI and App.",
   "type": "module",
   "bin": {
@@ -34,10 +34,7 @@
     "url": "https://github.com/badaruddinl/agy-auth/issues"
   },
   "homepage": "https://github.com/badaruddinl/agy-auth#readme",
-  "dependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
-    "keytar": "^7.9.0"
-  },
+  "dependencies": {},
   "engines": {
     "node": ">=18"
   },

@@ -10,6 +10,8 @@ Standalone local session manager for Google Antigravity `agy` CLI/App.
 npm install -g @badaruddinl/agy-auth
 ```
 
+The package has no npm runtime dependencies or native addon install step.
+
 Then run:
 
 ```bash
@@ -87,11 +89,11 @@ For Antigravity App, the selected account is guaranteed at the shared credential
 
 ## Cross-Platform Notes
 
-This package uses [`keytar`](https://www.npmjs.com/package/keytar), which supports:
+This package stores credentials through the operating-system keyring without npm native addons:
 
 - Windows Credential Manager
-- macOS Keychain
-- Linux Secret Service / libsecret
+- macOS Keychain via the built-in `security` command
+- Linux Secret Service / libsecret via `secret-tool`
 
 AGY must use the same OS keyring service/account names for switching to work. If a future AGY release changes those names, override them with:
 
@@ -101,7 +103,7 @@ AGY_AUTH_TARGET_ACCOUNT="antigravity"
 agy-auth status
 ```
 
-On Linux, make sure Secret Service is available. On headless servers this usually requires a keyring daemon such as GNOME Keyring or KWallet.
+On Linux, make sure `secret-tool` and a Secret Service provider are available. On headless servers this usually requires a keyring daemon such as GNOME Keyring or KWallet.
 
 ## Scope
 

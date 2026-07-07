@@ -297,6 +297,45 @@ test('formats active unsaved account as current auth', () => {
   assert.match(writes.join('\n'), /\*\s+01\s+writer@example\.com\s+-\s+current\s+/);
 });
 
+test('formats account list within a narrow terminal without wrapping rows', () => {
+  const writes = [];
+  const originalLog = console.log;
+  console.log = value => writes.push(String(value));
+  try {
+    printAccounts({
+      activeAccountKey: 'writer@example.com',
+      accounts: [
+        {
+          accountKey: 'writer@example.com',
+          email: 'very.long.account.name.for.testing@example-company.internal',
+          alias: 'primary-long-alias',
+          hasSnapshot: true,
+          usage: parseUsageOutput(`
+            Account: writer@example.com
+            GEMINI MODELS
+              Weekly Limit
+                89% remaining
+              Five Hour Limit
+                98% remaining
+            CLAUDE AND GPT MODELS
+              Weekly Limit
+                66% remaining
+              Five Hour Limit
+                Quota available
+          `),
+          usageAt: new Date().toISOString(),
+        },
+      ],
+    }, { columns: 64 });
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.ok(writes.every(line => line.length <= 64));
+  assert.equal(writes.filter(line => /\*\s+01\s+/.test(line)).length, 1);
+  assert.match(writes.join('\n'), /very\.long\.account\.name/);
+});
+
 test('formats recent refresh timestamp', () => {
   assert.equal(formatLastRefresh(new Date().toISOString()), 'Now');
 });

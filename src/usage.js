@@ -1,4 +1,4 @@
-import pty from '@homebridge/node-pty-prebuilt-multiarch';
+import { spawnAgyProcess } from './agy-process.js';
 
 const ANSI_PATTERN = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g;
 
@@ -63,14 +63,8 @@ export function parseUsageOutput(output) {
 
 export function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? 'agy.exe' : 'agy';
-    const args = [];
-    const term = pty.spawn(command, args, {
-      name: 'xterm-256color',
-      cols: 120,
-      rows: 40,
-      cwd: process.cwd(),
-      env: { ...process.env, TERM: 'xterm-256color' },
+    const term = spawnAgyProcess([], {
+      env: { ...process.env, TERM: process.env.TERM || 'xterm-256color' },
     });
 
     let output = '';
@@ -85,7 +79,7 @@ export function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
       settled = true;
       clearTimeout(timer);
       try {
-        if (!sentExit) term.write('/exit\r');
+        if (!sentExit) term.write('/exit\n');
       } catch {
         // best effort
       }
@@ -108,7 +102,7 @@ export function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
     const sendUsage = () => {
       if (sentUsage) return;
       sentUsage = true;
-      term.write('/usage\r');
+      term.write('/usage\n');
     };
 
     const scheduleUsage = (delayMs = 1000) => {
@@ -125,7 +119,7 @@ export function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
       if (/GEMINI\s+MODELS/i.test(clean) && /CLAUDE\s+AND\s+GPT\s+MODELS/i.test(clean)) {
         if (!sentExit) {
           sentExit = true;
-          term.write('/exit\r');
+          term.write('/exit\n');
         }
         setTimeout(() => finish(null, parseUsageOutput(clean)), 750);
       }

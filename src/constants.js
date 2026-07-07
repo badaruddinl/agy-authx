@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export const VERSION = '0.1.16';
+export const VERSION = '0.1.17';
 export const AGY_SERVICE = process.env.AGY_AUTH_TARGET_SERVICE || 'gemini:antigravity';
 export const AGY_ACCOUNT = process.env.AGY_AUTH_TARGET_ACCOUNT || 'antigravity';
 export const SNAPSHOT_SERVICE = process.env.AGY_AUTH_SNAPSHOT_SERVICE || 'agy-auth';

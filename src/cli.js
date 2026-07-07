@@ -29,7 +29,8 @@ function help() {
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh quota for all snapshots, then list');
   console.log('  usage [--json]          Show active account quota and reset time');
-  console.log('  switch <query>          Switch active AGY session by email/alias/key');
+  console.log('  switch <query>          Switch active AGY session by list id/email/alias/key');
+  console.log('  set alias <query> to <alias>');
   console.log('  verify                  Verify agy-authx active account matches native agy');
   console.log('  remove <query|--all>    Remove saved snapshots');
   console.log('  --version, -V           Show version');
@@ -428,7 +429,7 @@ async function switchAccount(query, jsonMode) {
     if (jsonMode) {
       printJson({ ok: false, error: 'Switch query is required.', accounts: registry.accounts });
     } else {
-      console.log('Switch query is required. Use an email, alias, or key from this list:');
+      console.log('Switch query is required. Use a list id, email, alias, or key from this list:');
       printAccounts(registry);
     }
     return 1;
@@ -455,10 +456,65 @@ async function switchAccount(query, jsonMode) {
   await writeRegistry(registry);
 
   if (jsonMode) printJson({ ok: true, account, activeCredentialWritten: true });
-  else {
-    console.log(`Active AGY session set to: ${account.email}`);
-    console.log('AGY CLI/App will load this credential as the active session.');
+  else console.log(`switched to ${account.email}`);
+  return 0;
+}
+
+function parseSetAliasArgs(args) {
+  if (args[0] !== 'alias') {
+    throw new Error('Usage: agy-authx set alias <query> to <alias>');
   }
+  const rest = args.slice(1);
+  const toIndex = rest.indexOf('to');
+  if (toIndex <= 0) {
+    throw new Error('Usage: agy-authx set alias <query> to <alias>');
+  }
+  const query = rest.slice(0, toIndex).join(' ').trim();
+  const alias = rest.slice(toIndex + 1).join(' ').trim();
+  if (!query) throw new Error('Alias target query is required.');
+  if (!alias) throw new Error('Alias value is required.');
+  return { query, alias };
+}
+
+async function setAlias(args, jsonMode) {
+  let parsed;
+  try {
+    parsed = parseSetAliasArgs(args);
+  } catch (error) {
+    if (jsonMode) printJson({ ok: false, error: error.message });
+    else console.log(error.message);
+    return 1;
+  }
+
+  const listRegistry = await readListRegistry();
+  const { account, matches } = findAccount(listRegistry, parsed.query);
+  if (matches.length > 1) {
+    if (jsonMode) printJson({ ok: false, error: 'Query matched multiple accounts.', matches });
+    else console.log('Query matched multiple accounts. Use a more specific list id, email, alias, or key.');
+    return 2;
+  }
+  if (!account) {
+    if (jsonMode) printJson({ ok: false, error: 'No saved account matched.', query: parsed.query });
+    else console.log('No saved account matched.');
+    return 1;
+  }
+
+  const registry = await readRegistry();
+  const previous = registry.accounts.find(item => item.accountKey === account.accountKey) || account;
+  const updated = {
+    ...previous,
+    accountKey: account.accountKey,
+    email: previous.email || account.email || account.accountKey,
+    alias: parsed.alias,
+  };
+  upsertAccount(registry, updated);
+  if (!registry.activeAccountKey && listRegistry.activeAccountKey) {
+    registry.activeAccountKey = listRegistry.activeAccountKey;
+  }
+  await writeRegistry(registry);
+
+  if (jsonMode) printJson({ ok: true, account: updated });
+  else console.log(`set ${updated.email} to ${updated.alias}`);
   return 0;
 }
 
@@ -573,6 +629,7 @@ export async function run(argv) {
   if (command === 'list') return list(jsonMode, refresh);
   if (command === 'usage') return usage(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);
+  if (command === 'set') return setAlias(rest, jsonMode);
   if (command === 'verify') return verify(jsonMode);
   if (command === 'remove') return remove(rest, jsonMode);
 
@@ -586,6 +643,7 @@ export const internals = {
   findAccount,
   parseAlias,
   parseLoginMethod,
+  parseSetAliasArgs,
   sameEmail,
   shouldActivateLogin,
   stripLoginControlArgs,

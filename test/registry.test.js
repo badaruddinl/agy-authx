@@ -31,6 +31,9 @@ test('matches accounts by email alias and key', () => {
   assert.equal(internals.findAccount(registry, 'utama').account.email, 'writer@example.com');
   assert.equal(internals.findAccount(registry, 'backup@').account.accountKey, 'backup-example.com');
   assert.equal(internals.findAccount(registry, 'example.com').matches.length, 2);
+  assert.equal(internals.findAccount(registry, '01').account.email, 'writer@example.com');
+  assert.equal(internals.findAccount(registry, '2').account.email, 'backup@example.com');
+  assert.equal(internals.findAccount(registry, '03').account, null);
 });
 
 test('parses login alias', () => {
@@ -76,6 +79,19 @@ test('parses agy-authx login method flags', () => {
   assert.equal(internals.shouldActivateLogin(['--alias', 'main']), false);
   assert.deepEqual(internals.stripLoginControlArgs(['--activate', '--cloud-project', '--alias', 'main']), ['--alias', 'main']);
   assert.throws(() => internals.parseLoginMethod(['--oauth', '--cloud-project']), /Choose only one login method/);
+});
+
+test('parses alias set command arguments', () => {
+  assert.deepEqual(internals.parseSetAliasArgs(['alias', '02', 'to', 'work']), {
+    query: '02',
+    alias: 'work',
+  });
+  assert.deepEqual(internals.parseSetAliasArgs(['alias', 'writer@example.com', 'to', 'main account']), {
+    query: 'writer@example.com',
+    alias: 'main account',
+  });
+  assert.throws(() => internals.parseSetAliasArgs(['02', 'work']), /Usage/);
+  assert.throws(() => internals.parseSetAliasArgs(['alias', '02', 'to']), /Alias value/);
 });
 
 test('parses native AGY login OAuth output', () => {

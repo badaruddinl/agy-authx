@@ -35,7 +35,9 @@ agy-authx login --cloud-project --alias work
 agy-authx list
 agy-authx list --refresh
 agy-authx usage
+agy-authx switch 02
 agy-authx switch main
+agy-authx set alias 02 to work
 agy-authx verify
 agy-authx remove main
 ```
@@ -43,6 +45,19 @@ agy-authx remove main
 `agy-authx login` saves the newly logged-in account but preserves the previously active AGY session when one exists. Use `agy-authx login --activate` when you want the newly logged-in account to become active immediately.
 
 `agy-authx list` adapts to narrow terminals, keeps each account on one row, and highlights the selected active account when color output is available.
+
+The first column in `agy-authx list` is a selectable id. You can use it anywhere a query is accepted:
+
+```bash
+agy-authx switch 02
+agy-authx set alias 02 to backup
+```
+
+`switch` prints one concise success line:
+
+```text
+switched to account@example.com
+```
 
 ## How It Works
 
@@ -61,12 +76,19 @@ The registry stores metadata only: email, alias, timestamps, and cached usage. S
 
 1. Run `agy-authx login --alias main` and complete AGY sign-in for account A.
 2. Run `agy-authx login --alias backup` and complete AGY sign-in for account B. Account A stays active after this save.
-3. Switch with `agy-authx switch main` or `agy-authx switch backup`.
+3. Switch with `agy-authx switch main`, `agy-authx switch backup`, or the row id from `agy-authx list`.
 
 If you want account B active immediately, run:
 
 ```bash
 agy-authx login --activate --alias backup
+```
+
+Set or update an alias with:
+
+```bash
+agy-authx set alias 02 to backup
+agy-authx set alias account@example.com to main
 ```
 
 For Antigravity App, the selected account is guaranteed at the shared credential layer. If the app was already open before switching, restart or reload the app session so it reads the newly selected credential.

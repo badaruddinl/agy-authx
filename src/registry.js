@@ -122,6 +122,11 @@ export function findAccount(registry, query) {
     const active = accounts.find(item => item.accountKey === registry.activeAccountKey);
     return { account: active || null, matches: active ? [active] : [] };
   }
+  const numericIndex = parseAccountListIndex(query);
+  if (numericIndex !== null) {
+    const account = accounts[numericIndex] || null;
+    return { account, matches: account ? [account] : [] };
+  }
   const needle = String(query).toLowerCase();
   const matches = accounts.filter(account => (
     String(account.email || '').toLowerCase().includes(needle)
@@ -129,4 +134,12 @@ export function findAccount(registry, query) {
     || String(account.accountKey || '').toLowerCase().includes(needle)
   ));
   return { account: matches.length === 1 ? matches[0] : null, matches };
+}
+
+function parseAccountListIndex(value) {
+  const text = String(value || '').trim();
+  if (!/^\d+$/.test(text)) return null;
+  const index = Number.parseInt(text, 10);
+  if (!Number.isSafeInteger(index) || index < 1) return null;
+  return index - 1;
 }

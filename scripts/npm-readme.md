@@ -25,6 +25,7 @@ agy-auth --version
 agy-authx status
 agy-authx login --alias main
 agy-authx list
+agy-authx switch 02
 agy-authx switch main
 agy-authx verify
 ```
@@ -46,7 +47,9 @@ agy-authx login --activate --alias x  # save and activate the new session
 agy-authx list                        # compact account table
 agy-authx list --refresh              # refresh quota data first
 agy-authx usage                       # show active account quota
+agy-authx switch 02                   # switch by list id
 agy-authx switch main                 # switch by alias/email/key
+agy-authx set alias 02 to backup      # set or update alias
 agy-authx remove main                 # remove one saved session
 ```
 

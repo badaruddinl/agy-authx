@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.17 - Unreleased
+
+### Fixed
+
+- Allow account list ids such as `01` and `02` to be used as account queries. This fixes `agy-authx switch 02` after copying an id from `agy-authx list`.
+
+### Changed
+
+- Shortened successful switch output to `switched to <account>`.
+
+### Added
+
+- Added `agy-authx set alias <query> to <alias>` for setting or updating account aliases by list id, email, existing alias, or account key.
+
 ## 0.1.16 - 2026-07-07
 
 ### Changed

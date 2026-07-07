@@ -3,6 +3,7 @@ import { detectActiveAccount } from './agy.js';
 import { printAccounts, printJson } from './format.js';
 import { runAgyLogin } from './agy-login.js';
 import { readUsageFromAgy } from './usage.js';
+import { runLegacyCommand } from './legacy.js';
 import {
   deleteAgyCredential,
   deleteSnapshot,
@@ -31,6 +32,7 @@ function help() {
   console.log('  usage [--json]          Show active account quota and reset time');
   console.log('  switch <query>          Switch active AGY session by list id/email/alias/key');
   console.log('  set alias <query> to <alias>');
+  console.log('  legacy <status|enable|disable>');
   console.log('  verify                  Verify agy-authx active account matches agy');
   console.log('  remove <query|--all>    Remove saved snapshots');
   console.log('  --version, -V           Show version');
@@ -630,6 +632,7 @@ export async function run(argv) {
   if (command === 'usage') return usage(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);
   if (command === 'set') return setAlias(rest, jsonMode);
+  if (command === 'legacy') return runLegacyCommand(rest, { jsonMode, authxVersion: VERSION });
   if (command === 'verify') return verify(jsonMode);
   if (command === 'remove') return remove(rest, jsonMode);
 

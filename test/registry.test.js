@@ -7,6 +7,7 @@ import { extractAccountEmail } from '../src/agy.js';
 import { internals as loginInternals } from '../src/agy-login.js';
 import { internals, run } from '../src/cli.js';
 import { formatLastRefresh, formatResetAt, formatUsageColumns, parseRefreshDuration, printAccounts } from '../src/format.js';
+import { internals as legacyInternals, runLegacyCommand } from '../src/legacy.js';
 import { readRegistry, upsertAccount } from '../src/registry.js';
 import { parseUsageOutput } from '../src/usage.js';
 
@@ -22,11 +23,70 @@ test('extracts latest AGY account email from logs', () => {
 test('package exposes agy-authx and agy-auth commands through the agy-authx entrypoint', async () => {
   const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8'));
 
-  assert.equal(packageJson.version, '0.1.18');
+  assert.equal(packageJson.version, '0.1.19');
   assert.deepEqual(packageJson.bin, {
     'agy-authx': 'bin/agy-authx.js',
     'agy-auth': 'bin/agy-authx.js',
   });
+});
+
+test('legacy bridge parser recognizes only the managed bridge version', () => {
+  const parsed = legacyInternals.parseGlobalPackage(JSON.stringify({
+    dependencies: {
+      '@badaruddinl/agy-auth': {
+        version: '0.1.17',
+      },
+    },
+  }));
+
+  assert.equal(parsed.installed, true);
+  assert.equal(parsed.version, '0.1.17');
+  assert.equal(parsed.managedBridge, true);
+});
+
+test('legacy bridge guard refuses to modify unmanaged versions', () => {
+  assert.throws(
+    () => legacyInternals.assertManagedLegacyBridge({
+      installed: true,
+      version: '0.1.16',
+    }),
+    /Only @badaruddinl\/agy-auth@0\.1\.17 is managed/,
+  );
+});
+
+test('legacy enable removes verified bridge before installing agy-authx', async () => {
+  const calls = [];
+  const runner = async (_command, args) => {
+    calls.push(args);
+    if (args[0] === 'ls') {
+      return {
+        stdout: JSON.stringify({
+          dependencies: {
+            '@badaruddinl/agy-auth': {
+              version: '0.1.17',
+            },
+          },
+        }),
+        stderr: '',
+      };
+    }
+    return { stdout: '', stderr: '' };
+  };
+
+  const lines = [];
+  const code = await runLegacyCommand(['enable'], {
+    authxVersion: '0.1.19',
+    runner,
+    output: line => lines.push(line),
+  });
+
+  assert.equal(code, 0);
+  assert.deepEqual(calls, [
+    ['ls', '-g', '@badaruddinl/agy-auth', '--depth=0', '--json'],
+    ['uninstall', '-g', '@badaruddinl/agy-auth'],
+    ['install', '-g', '@badaruddinl/agy-authx@0.1.19'],
+  ]);
+  assert.match(lines.join('\n'), /agy-auth cmd is enabled through agy-authx/);
 });
 
 test('matches accounts by email alias and key', () => {

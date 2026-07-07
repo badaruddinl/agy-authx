@@ -20,14 +20,22 @@ test('extracts latest AGY account email from logs', () => {
   assert.equal(email, 'writer@example.com');
 });
 
-test('package exposes agy-authx and agy-auth commands through the agy-authx entrypoint', async () => {
+test('agy-authx package owns only the agy-authx command', async () => {
   const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8'));
 
   assert.equal(packageJson.version, '0.1.18');
   assert.deepEqual(packageJson.bin, {
     'agy-authx': 'bin/agy-authx.js',
-    'agy-auth': 'bin/agy-authx.js',
   });
+});
+
+test('agy-auth bridge owns only the agy-auth command and installs agy-authx', async () => {
+  const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'legacy', 'agy-auth', 'package.json'), 'utf8'));
+
+  assert.deepEqual(packageJson.bin, {
+    'agy-auth': 'bin/agy-auth.js',
+  });
+  assert.equal(packageJson.dependencies['@badaruddinl/agy-authx'], '^0.1.18');
 });
 
 test('legacy bridge parser recognizes managed legacy bridge versions', () => {
@@ -56,7 +64,7 @@ test('legacy bridge guard refuses to modify unmanaged versions', () => {
   );
 });
 
-test('legacy enable removes verified bridge before installing agy-authx', async () => {
+test('legacy enabled removes verified bridge before installing agy-auth bridge', async () => {
   const calls = [];
   const runner = async (_command, args) => {
     calls.push(args);
@@ -86,9 +94,9 @@ test('legacy enable removes verified bridge before installing agy-authx', async 
   assert.deepEqual(calls, [
     ['ls', '-g', '@badaruddinl/agy-auth', '--depth=0', '--json'],
     ['uninstall', '-g', '@badaruddinl/agy-auth'],
-    ['install', '-g', '@badaruddinl/agy-authx@0.1.18'],
+    ['install', '-g', '@badaruddinl/agy-auth'],
   ]);
-  assert.match(lines.join('\n'), /agy-auth cmd is enabled through agy-authx/);
+  assert.match(lines.join('\n'), /agy-auth cmd is enabled through the bridge package/);
 });
 
 test('matches accounts by email alias and key', () => {

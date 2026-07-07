@@ -2,12 +2,13 @@
 
 WARNING: `@badaruddinl/agy-auth` has moved to [`@badaruddinl/agy-authx`](https://www.npmjs.com/package/@badaruddinl/agy-authx).
 
-This `0.1.17` package is a compatibility bridge. It installs `@badaruddinl/agy-authx@0.1.17` and keeps both commands available:
+This package is a compatibility bridge. It installs `@badaruddinl/agy-authx` and keeps the old command available:
 
 ```bash
 agy-auth status
-agy-authx status
 ```
+
+`agy-auth` runs the `agy-authx` implementation, so `agy-auth --version` reports `agy-authx <version>`.
 
 For new installs, use:
 

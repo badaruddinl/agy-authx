@@ -102,8 +102,8 @@ async function uninstallLegacyBridge(runner = defaultRunner) {
   return runner(npmCommand(), ['uninstall', '-g', LEGACY_PACKAGE]);
 }
 
-async function installAuthx(version, runner = defaultRunner) {
-  return runner(npmCommand(), ['install', '-g', `${AUTHX_PACKAGE}@${version}`]);
+async function installLegacyBridge(runner = defaultRunner) {
+  return runner(npmCommand(), ['install', '-g', LEGACY_PACKAGE]);
 }
 
 function printLegacyResult(payload, jsonMode, output = console.log) {
@@ -115,21 +115,21 @@ function printLegacyResult(payload, jsonMode, output = console.log) {
   if (payload.action === 'status') {
     output(`legacy bridge: ${payload.installed ? `${payload.packageName}@${payload.version}` : 'not installed'}`);
     output(`managed      : ${payload.managedBridge ? 'yes' : 'no'}`);
-    output(`agy-auth cmd : provided by ${AUTHX_PACKAGE}@${payload.authxVersion} when installed globally`);
+    output(`agy-auth cmd : provided by ${LEGACY_PACKAGE} when installed globally`);
     return;
   }
 
   if (payload.action === 'disabled') {
     if (payload.removed) output(`removed ${LEGACY_PACKAGE}@${payload.version}`);
     else output(`no managed ${LEGACY_PACKAGE} bridge is installed`);
-    output(`agy-auth cmd should come from ${AUTHX_PACKAGE}@${payload.authxVersion}`);
+    output(`agy-auth cmd is disabled; use agy-authx directly`);
     return;
   }
 
   if (payload.action === 'enabled') {
     if (payload.removed) output(`removed ${LEGACY_PACKAGE}@${payload.version}`);
-    output(`installed ${AUTHX_PACKAGE}@${payload.authxVersion}`);
-    output('agy-auth cmd is enabled through agy-authx');
+    output(`installed ${LEGACY_PACKAGE}`);
+    output('agy-auth cmd is enabled through the bridge package');
   }
 }
 
@@ -153,7 +153,7 @@ export async function runLegacyCommand(args, options = {}) {
     version: legacy.version || null,
     managedBridge: legacy.managedBridge,
     removed: false,
-    installedAuthx: false,
+    installedLegacyBridge: false,
   };
 
   if (action === 'disabled' && legacy.installed) {
@@ -166,8 +166,8 @@ export async function runLegacyCommand(args, options = {}) {
       await uninstallLegacyBridge(runner);
       payload.removed = true;
     }
-    await installAuthx(authxVersion, runner);
-    payload.installedAuthx = true;
+    await installLegacyBridge(runner);
+    payload.installedLegacyBridge = true;
   }
 
   printLegacyResult(payload, jsonMode, output);
@@ -177,7 +177,7 @@ export async function runLegacyCommand(args, options = {}) {
 export const internals = {
   assertManagedLegacyBridge,
   compareVersions,
-  installAuthx,
+  installLegacyBridge,
   isManagedLegacyVersion,
   normalizeAction,
   npmCommand,

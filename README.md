@@ -2,7 +2,7 @@
 
 Standalone local session manager for Google Antigravity `agy` CLI/App.
 
-Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. `agy-auth` is also installed as a compatibility alias and runs the same `agy-authx` entrypoint. `agy-authx` saves multiple local AGY sessions in your operating-system keyring, lets you switch between them, and keeps a small registry at `~/.gemini/antigravity-cli/accounts/registry.json`.
+Install package `@badaruddinl/agy-authx`, then run the `agy-authx` command. `agy-authx` saves multiple local AGY sessions in your operating-system keyring, lets you switch between them, and keeps a small registry at `~/.gemini/antigravity-cli/accounts/registry.json`.
 
 ## Install
 
@@ -12,11 +12,10 @@ npm install -g @badaruddinl/agy-authx
 
 The package has no npm runtime dependencies and no compiled addon install step.
 
-Installing `@badaruddinl/agy-authx` exposes two commands backed by the same entrypoint:
+Installing `@badaruddinl/agy-authx` exposes the new command:
 
 ```bash
 agy-authx --version
-agy-auth --version
 ```
 
 Use one runtime consistently:
@@ -98,7 +97,7 @@ For Antigravity App, the selected account is guaranteed at the shared credential
 
 ## Legacy Command
 
-`agy-auth` is a compatibility alias for `agy-authx`. To manage the deprecated bridge package safely:
+`agy-auth` is provided by the deprecated `@badaruddinl/agy-auth` bridge package. That bridge installs `@badaruddinl/agy-authx` and exposes only the `agy-auth` command, so `agy-auth --version` reports the `agy-authx` version it runs. To manage the bridge package safely:
 
 ```bash
 agy-authx legacy status
@@ -106,7 +105,7 @@ agy-authx legacy disabled
 agy-authx legacy enabled
 ```
 
-`legacy disabled` only uninstalls `@badaruddinl/agy-auth` after verifying that the installed version is less than or equal to `0.1.17`. `legacy enabled` removes that verified bridge package when present, then installs `@badaruddinl/agy-authx@<current version>` so the `agy-auth` command comes from the main package. `enable` and `disable` are accepted as aliases.
+`legacy disabled` only uninstalls `@badaruddinl/agy-auth` after verifying that the installed version is less than or equal to `0.1.17`. `legacy enabled` removes that verified bridge package when present, then installs `@badaruddinl/agy-auth` so the `agy-auth` command comes from the bridge package and runs `agy-authx` behind the scenes. `enable` and `disable` are accepted as aliases.
 
 ## Keyring Requirements
 

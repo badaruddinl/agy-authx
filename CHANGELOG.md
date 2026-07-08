@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.27 - 2026-07-08
+
+### Fixed
+
+- Removed macOS full Keychain enumeration from snapshot listing. `agy-authx` no longer runs `security dump-keychain`; it only checks exact `agy-auth` snapshot account keys already known from the registry.
+- Documented that macOS Keychain access is limited to exact AGY and `agy-authx` credential items.
+
 ## 0.1.26 - 2026-07-08
 
 ### Fixed

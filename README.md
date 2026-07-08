@@ -149,7 +149,7 @@ sudo apt install libsecret-tools
 
 `secret-tool` is only the command-line client. A Secret Service provider must also be running, such as GNOME Keyring or KWallet. Desktop Linux sessions usually already have one. Headless servers often need extra setup for a keyring daemon.
 
-On macOS, no extra package is normally required because `/usr/bin/security` is built in. macOS may still ask for Keychain access permission the first time credentials are read or written.
+On macOS, no extra package is normally required because `/usr/bin/security` is built in. `agy-authx` must only access the exact AGY credential item (`service=gemini:antigravity`, `account=antigravity`) and its own snapshot items (`service=agy-auth`, account keys from the registry). It must not enumerate the full Keychain.
 
 If a future AGY release changes the active credential names, override them with:
 

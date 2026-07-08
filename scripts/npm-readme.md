@@ -88,7 +88,7 @@ The active account is highlighted in `agy-authx list` when your terminal support
 
 - Windows: use PowerShell/CMD with `agy-authx.cmd` when AGY is installed on Windows.
 - WSL/Linux: install Node and `agy-authx` inside WSL/Linux when AGY runs there.
-- macOS: uses the built-in Keychain `security` command.
+- macOS: uses the built-in Keychain `security` command for exact AGY/agy-authx credential items only; it does not enumerate the full Keychain.
 - Linux: requires `secret-tool` from libsecret, plus a running Secret Service provider such as GNOME Keyring or KWallet.
 
 Ubuntu/Debian:

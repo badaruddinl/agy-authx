@@ -24,7 +24,7 @@ test('extracts latest AGY account email from logs', () => {
 test('agy-authx package owns only the agy-authx command', async () => {
   const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8'));
 
-  assert.equal(packageJson.version, '0.1.26');
+  assert.equal(packageJson.version, '0.1.27');
   assert.deepEqual(packageJson.bin, {
     'agy-authx': 'bin/agy-authx.js',
   });
@@ -134,6 +134,12 @@ test('AGY setup commands use official installer URLs', () => {
 
   assert.match(command, /https:\/\/antigravity\.google\/cli\/install\.(ps1|sh)/);
   assert.match(instructions.docsUrl, /antigravity\.google\/docs\/cli-install/);
+});
+
+test('macOS keyring implementation does not enumerate the full Keychain', async () => {
+  const source = await fs.readFile(path.join(process.cwd(), 'src', 'keyring.js'), 'utf8');
+
+  assert.doesNotMatch(source, /dump-keychain/);
 });
 
 test('login uses foreground AGY by default', () => {

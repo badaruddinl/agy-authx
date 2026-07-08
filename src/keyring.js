@@ -55,8 +55,9 @@ export async function deleteSnapshot(accountKey) {
   return deleteCredential(SNAPSHOT_SERVICE, accountKey);
 }
 
-export async function listSnapshots() {
-  return listCredentials(SNAPSHOT_SERVICE).map(account => ({ account, password: null }));
+export async function listSnapshots({ knownAccountKeys = [] } = {}) {
+  return listCredentials(SNAPSHOT_SERVICE, { knownAccountKeys })
+    .map(account => ({ account, password: null }));
 }
 
 function readCredential(service, account) {
@@ -95,14 +96,14 @@ function deleteCredential(service, account) {
   return result.status === 0 || /not found/i.test(`${result.stdout}\n${result.stderr}`);
 }
 
-function listCredentials(service) {
+function listCredentials(service, options = {}) {
   if (process.platform === 'win32') {
     const prefix = `${service}/`;
     return listWindowsCredentials(`${prefix}*`)
       .map(item => item.targetName.startsWith(prefix) ? item.targetName.slice(prefix.length) : '')
       .filter(Boolean);
   }
-  if (process.platform === 'darwin') return listMacCredentials(service);
+  if (process.platform === 'darwin') return listMacCredentials(service, options.knownAccountKeys || []);
   return listLinuxCredentials(service);
 }
 
@@ -116,19 +117,20 @@ function readMacCredential(service, account) {
   throw new KeyringError(formatCommandError('security', result));
 }
 
-function listMacCredentials(service) {
-  const result = spawnSync('security', ['dump-keychain', '-d'], {
+function listMacCredentials(service, knownAccountKeys) {
+  return [...new Set(knownAccountKeys)]
+    .filter(account => hasMacCredential(service, account));
+}
+
+function hasMacCredential(service, account) {
+  if (!account) return false;
+  const result = spawnSync('security', ['find-generic-password', '-s', service, '-a', account], {
     encoding: 'utf8',
     windowsHide: true,
-    maxBuffer: 20 * 1024 * 1024,
   });
-  if (result.status !== 0) throw new KeyringError(formatCommandError('security', result));
-  const escapedService = escapeRegExp(service);
-  return result.stdout
-    .split(/\n(?=keychain: )/g)
-    .filter(block => new RegExp(`"svce"<blob>="${escapedService}"`).test(block))
-    .map(block => block.match(/"acct"<blob>="([^"]+)"/)?.[1] || '')
-    .filter(Boolean);
+  if (result.status === 0) return true;
+  if (/could not be found|not found/i.test(`${result.stdout}\n${result.stderr}`)) return false;
+  throw new KeyringError(formatCommandError('security', result));
 }
 
 function readLinuxCredential(service, account) {
@@ -178,6 +180,3 @@ function formatCommandError(command, result) {
   return output || `${command} exited with ${result.status}`;
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

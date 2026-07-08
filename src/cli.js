@@ -250,7 +250,9 @@ async function refreshAllUsage() {
     if (error instanceof KeyringError) return null;
     throw error;
   });
-  const snapshots = await listSnapshots();
+  const snapshots = await listSnapshots({
+    knownAccountKeys: registry.accounts.map(account => account.accountKey),
+  });
   const snapshotKeys = new Set(snapshots.map(snapshot => snapshot.account));
   const accounts = registry.accounts.filter(account => snapshotKeys.has(account.accountKey));
 
@@ -447,7 +449,9 @@ async function saveActiveCredentialSnapshot(accountKey) {
 async function readListRegistry() {
   const registry = await readRegistry();
   await ensureSelectedSessionActive(registry);
-  const snapshots = await listSnapshots();
+  const snapshots = await listSnapshots({
+    knownAccountKeys: registry.accounts.map(account => account.accountKey),
+  });
   const activeAccount = registry.accounts.find(account => account.accountKey === registry.activeAccountKey);
   const activeEmail = activeAccount?.email || await detectActiveAccount();
   const snapshotKeys = new Set(snapshots.map(item => item.account));

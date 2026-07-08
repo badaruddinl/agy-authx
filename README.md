@@ -57,6 +57,7 @@ agy-authx login --cloud-project --project my-gcp-project --alias main
 agy-authx login --activate --alias main
 agy-authx list
 agy-authx list --refresh
+agy-authx list --refresh --debug
 agy-authx usage
 agy-authx switch 02
 agy-authx switch main
@@ -74,7 +75,7 @@ agy-authx remove main
 
 `agy-authx list` adapts to narrow terminals, keeps each account on one row, and highlights the selected active account when color output is available.
 
-`agy-authx list --refresh` reads quota from the local AGY backend. If a platform-specific AGY build prints the backend port in a format `agy-authx` cannot detect yet, rerun with:
+`agy-authx list --refresh` reads quota from the local AGY backend. Use `agy-authx list --refresh --debug` to print detected gRPC candidate ports and failed attempts while diagnosing a platform-specific backend issue. If AGY prints the backend port in a format `agy-authx` cannot detect yet, rerun with:
 
 ```bash
 AGY_AUTHX_AGY_GRPC_PORT=49331 agy-authx list --refresh

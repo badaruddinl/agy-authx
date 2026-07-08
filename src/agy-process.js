@@ -13,6 +13,9 @@ export function spawnAgyProcess(args = [], options = {}) {
   });
 
   return {
+    get pid() {
+      return child.pid;
+    },
     onData(handler) {
       child.stdout.on('data', handler);
       child.stderr.on('data', handler);
@@ -60,6 +63,9 @@ export function spawnAgyForeground(args = [], options = {}) {
   let attachedInput = null;
 
   return {
+    get pid() {
+      return child.pid;
+    },
     onExit(handler) {
       child.on('exit', (exitCode, signal) => handler({ exitCode, signal }));
       child.on('error', error => handler({ exitCode: null, signal: null, error }));

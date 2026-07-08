@@ -73,6 +73,7 @@ agy-authx login --cloud-project       # Google Cloud project login
 agy-authx login --activate --alias x  # save and activate the new session
 agy-authx list                        # compact account table
 agy-authx list --refresh              # refresh quota data first
+agy-authx list --refresh --debug      # show backend port candidates
 agy-authx usage                       # show active account quota
 agy-authx switch 02                   # switch by list id
 agy-authx switch main                 # switch by alias/email/key
@@ -82,7 +83,7 @@ agy-authx legacy enabled              # enable agy-auth through the bridge packa
 agy-authx remove main                 # remove one saved session
 ```
 
-`agy-authx list --refresh` reads quota from the local AGY backend. If AGY prints a backend port that is not detected automatically, rerun with `AGY_AUTHX_AGY_GRPC_PORT=<port>`.
+`agy-authx list --refresh` reads quota from the local AGY backend. Use `agy-authx list --refresh --debug` to print detected backend port candidates. If AGY prints a backend port that is not detected automatically, rerun with `AGY_AUTHX_AGY_GRPC_PORT=<port>`.
 
 The active account is highlighted in `agy-authx list` when your terminal supports color.
 

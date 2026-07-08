@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import http2 from 'node:http2';
+import { spawnSync } from 'node:child_process';
 import { CLI_LOG, LOG_DIR } from './constants.js';
 import { detectActiveAccount } from './agy.js';
 import { spawnAgyProcess } from './agy-process.js';
@@ -65,7 +66,7 @@ export function parseUsageOutput(output) {
   };
 }
 
-export async function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
+export async function readUsageFromAgy({ timeoutMs = 30000, onDebug = null } = {}) {
   const logSnapshot = await snapshotAgyLogs();
   let processOutput = '';
   const backend = spawnAgyProcess([], {
@@ -77,15 +78,17 @@ export async function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
 
   try {
     const { usage, errors, sawPort } = await waitForQuotaSummary({
+      backendPid: backend.pid,
       logSnapshot,
       processOutput: () => processOutput,
+      onDebug,
       timeoutMs: Math.max(timeoutMs, 45000),
     });
     if (usage) return usage;
     const detail = errors.length ? ` Tried AGY ports: ${errors.join('; ')}` : '';
     const hint = sawPort
       ? ''
-      : ' No AGY gRPC port was detected from AGY output/logs. Run `agy-authx doctor`, or retry with `AGY_AUTHX_AGY_GRPC_PORT=<port>` if AGY printed a backend port.';
+      : ' No AGY gRPC port was detected from AGY output/logs or process listeners. Run `agy-authx doctor`, or retry with `AGY_AUTHX_AGY_GRPC_PORT=<port>` if AGY printed a backend port.';
     throw new Error(`Unable to read AGY quota summary from the local AGY backend.${hint}${detail}`);
   } finally {
     try {
@@ -96,15 +99,22 @@ export async function readUsageFromAgy({ timeoutMs = 30000 } = {}) {
   }
 }
 
-async function waitForQuotaSummary({ logSnapshot, processOutput, timeoutMs }) {
+async function waitForQuotaSummary({ backendPid, logSnapshot, processOutput, onDebug, timeoutMs }) {
   const startedAt = Date.now();
   const errors = [];
   let sawPort = false;
+  let reportedPorts = '';
   while (Date.now() - startedAt < timeoutMs) {
-    const ports = await findAgyGrpcPorts(logSnapshot, processOutput());
+    const ports = await findAgyGrpcPorts(logSnapshot, processOutput(), backendPid);
+    const portKey = ports.join(',');
+    if (onDebug && portKey && portKey !== reportedPorts) {
+      reportedPorts = portKey;
+      onDebug({ type: 'ports', ports });
+    }
     if (ports.length > 0) sawPort = true;
     for (const port of ports) {
       try {
+        if (onDebug) onDebug({ type: 'attempt', port });
         const payload = await readQuotaSummaryFromPort(port, Math.min(5000, timeoutMs));
         const usage = parseQuotaSummary(payload, new Date().toISOString());
         if (usage.available) {
@@ -113,6 +123,7 @@ async function waitForQuotaSummary({ logSnapshot, processOutput, timeoutMs }) {
         }
         errors.push(`${port}: empty parsed quota`);
       } catch (error) {
+        if (onDebug) onDebug({ type: 'error', port, error: error.message });
         errors.push(`${port}: ${error.message}`);
       }
     }
@@ -121,18 +132,61 @@ async function waitForQuotaSummary({ logSnapshot, processOutput, timeoutMs }) {
   return { usage: null, errors: [...new Set(errors)].slice(-12), sawPort };
 }
 
-async function findAgyGrpcPorts(logSnapshot, processText = '') {
+async function findAgyGrpcPorts(logSnapshot, processText = '', backendPid = null) {
   const envPort = Number(process.env.AGY_AUTHX_AGY_GRPC_PORT || '');
   if (Number.isInteger(envPort) && envPort > 0) return [envPort];
 
   const candidates = [];
   const logs = await readAgyLogsAfterSnapshot(logSnapshot);
   candidates.push(...extractAgyGrpcPorts(`${processText}\n${logs}`));
+  candidates.push(...listAgyProcessPorts(backendPid));
   if (candidates.length === 0) {
     const fallbackLogs = await readRecentAgyLogs();
     candidates.push(...extractAgyGrpcPorts(fallbackLogs));
   }
   return [...new Set(candidates.reverse().filter(port => Number.isInteger(port) && port > 0))].slice(0, 8);
+}
+
+function listAgyProcessPorts(rootPid) {
+  if (!rootPid || process.platform === 'win32') return [];
+  const pids = collectProcessTreePids(rootPid);
+  if (pids.length === 0) return [];
+  const result = spawnSync('lsof', ['-nP', '-a', '-iTCP', '-sTCP:LISTEN', '-p', pids.join(',')], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 3000,
+  });
+  if (result.status !== 0 && !result.stdout) return [];
+  return extractListeningPortsFromLsof(result.stdout);
+}
+
+function collectProcessTreePids(rootPid) {
+  const seen = new Set();
+  const pending = [String(rootPid)];
+  while (pending.length) {
+    const pid = pending.shift();
+    if (!pid || seen.has(pid)) continue;
+    seen.add(pid);
+    const result = spawnSync('pgrep', ['-P', pid], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 1000,
+    });
+    if (result.status === 0) {
+      pending.push(...String(result.stdout || '').split(/\s+/).filter(Boolean));
+    }
+  }
+  return [...seen].filter(pid => /^\d+$/.test(pid)).slice(0, 32);
+}
+
+function extractListeningPortsFromLsof(output) {
+  const ports = [];
+  for (const line of String(output || '').split(/\r?\n/)) {
+    if (!/\(LISTEN\)/i.test(line)) continue;
+    const match = line.match(/(?::|\])(\d{2,5})\s+\(LISTEN\)/);
+    if (match) ports.push(Number(match[1]));
+  }
+  return [...new Set(ports.filter(port => port >= 1024 && port <= 65535))];
 }
 
 function extractAgyGrpcPorts(text) {
@@ -460,7 +514,9 @@ function formatDurationUntil(seconds, capturedAt) {
 export const internals = {
   decodeGrpcMessages,
   extractAgyGrpcPorts,
+  extractListeningPortsFromLsof,
   formatDurationUntil,
+  listAgyProcessPorts,
   parseProtoFields,
   parseQuotaSummary,
 };

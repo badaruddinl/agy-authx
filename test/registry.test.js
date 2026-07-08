@@ -24,7 +24,7 @@ test('extracts latest AGY account email from logs', () => {
 test('agy-authx package owns only the agy-authx command', async () => {
   const packageJson = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf8'));
 
-  assert.equal(packageJson.version, '0.1.28');
+  assert.equal(packageJson.version, '0.1.29-beta.0');
   assert.deepEqual(packageJson.bin, {
     'agy-authx': 'bin/agy-authx.js',
   });
@@ -494,6 +494,17 @@ test('extracts AGY gRPC ports from multiple log formats', () => {
   `;
 
   assert.deepEqual(usageInternals.extractAgyGrpcPorts(text), [49221, 49331, 49441, 49551]);
+});
+
+test('extracts listening ports from macOS lsof output', () => {
+  const output = `
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+agy     12345 user   12u  IPv4 0xabc      0t0  TCP 127.0.0.1:49331 (LISTEN)
+agy     12345 user   13u  IPv6 0xdef      0t0  TCP [::1]:49332 (LISTEN)
+agy     12345 user   14u  IPv4 0xghi      0t0  TCP 127.0.0.1:443 (LISTEN)
+  `;
+
+  assert.deepEqual(usageInternals.extractListeningPortsFromLsof(output), [49331, 49332]);
 });
 
 test('parses AGY usage account when TUI headings touch the email', () => {

@@ -35,6 +35,7 @@ function help() {
   console.log('  login --activate        Keep the newly logged-in account active');
   console.log('  list                    List stored auth snapshots');
   console.log('  list --refresh          Refresh quota for all snapshots, then list');
+  console.log('  list --refresh --debug  Print AGY backend gRPC port candidates while refreshing');
   console.log('  usage [--json]          Show active account quota and reset time');
   console.log('  oauth-config            Show detected AGY Google OAuth client config');
   console.log('  switch <query>          Switch active AGY session by list id/email/alias/key');
@@ -221,11 +222,14 @@ async function refreshActiveUsage() {
   return usage;
 }
 
-async function refreshUsageForAccount(registry, account) {
+async function refreshUsageForAccount(registry, account, options = {}) {
   const secret = await readSnapshot(account.accountKey);
   await writeAgyCredential(secret);
   const previous = registry.accounts.find(item => item.accountKey === account.accountKey);
-  const usage = await readUsageFromAgy({ timeoutMs: 20000 });
+  const usage = await readUsageFromAgy({
+    timeoutMs: 20000,
+    onDebug: options.onDebug,
+  });
   const usageEmail = usage.accountEmail || account.email;
   const accountKey = account.accountKey;
   if (usage.available) await saveActiveCredentialSnapshot(accountKey);
@@ -243,7 +247,7 @@ async function refreshUsageForAccount(registry, account) {
   return usage;
 }
 
-async function refreshAllUsage() {
+async function refreshAllUsage(options = {}) {
   const registry = await readRegistry();
   const activeKey = registry.activeAccountKey;
   const fallbackSecret = await readAgyCredential().catch(error => {
@@ -258,7 +262,7 @@ async function refreshAllUsage() {
 
   try {
     for (const account of accounts) {
-      await refreshUsageForAccount(registry, account);
+      await refreshUsageForAccount(registry, account, options);
       await writeRegistry(registry);
     }
   } finally {
@@ -499,9 +503,11 @@ async function readListRegistry() {
   };
 }
 
-async function list(jsonMode, refresh = false) {
+async function list(jsonMode, refresh = false, debugMode = false) {
   if (refresh && !requireAgyExecutable(jsonMode)) return 1;
-  if (refresh) await refreshAllUsage();
+  if (refresh) await refreshAllUsage({
+    onDebug: debugMode && !jsonMode ? printRefreshDebug : null,
+  });
   const registry = await readListRegistry();
   if (jsonMode) printJson(registry);
   else printAccounts(registry);
@@ -733,6 +739,16 @@ async function remove(args, jsonMode) {
   return 0;
 }
 
+function printRefreshDebug(event) {
+  if (event.type === 'ports') {
+    console.log(`[debug] AGY gRPC candidate ports: ${event.ports.join(', ') || '-'}`);
+  } else if (event.type === 'attempt') {
+    console.log(`[debug] trying AGY gRPC port ${event.port}`);
+  } else if (event.type === 'error') {
+    console.log(`[debug] AGY gRPC port ${event.port} failed: ${event.error}`);
+  }
+}
+
 async function doctor(jsonMode) {
   const agy = getAgyStatus();
   const registry = await readRegistry().catch(error => ({
@@ -789,7 +805,8 @@ export async function run(argv) {
   const args = [...argv];
   const jsonMode = args.includes('--json');
   const refresh = args.includes('--refresh');
-  const filtered = args.filter(arg => arg !== '--json' && arg !== '--refresh');
+  const debugMode = args.includes('--debug');
+  const filtered = args.filter(arg => arg !== '--json' && arg !== '--refresh' && arg !== '--debug');
   const command = filtered[0] || 'help';
   const rest = filtered.slice(1);
 
@@ -818,7 +835,7 @@ export async function run(argv) {
   if (command === 'setup-agy') return setupAgy(jsonMode);
   if (command === 'agy' && rest[0] === 'install') return setupAgy(jsonMode);
   if (command === 'login') return login(rest, jsonMode);
-  if (command === 'list') return list(jsonMode, refresh);
+  if (command === 'list') return list(jsonMode, refresh, debugMode);
   if (command === 'usage') return usage(jsonMode);
   if (command === 'oauth-config') return oauthConfig(jsonMode);
   if (command === 'switch') return switchAccount(rest[0], jsonMode);

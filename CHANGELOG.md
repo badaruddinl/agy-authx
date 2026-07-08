@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.29-beta.0 - 2026-07-08
+
+### Added
+
+- Added `agy-authx list --refresh --debug` to print AGY backend gRPC candidate ports and failed port attempts while refreshing quota.
+
+### Fixed
+
+- Added macOS/Linux `lsof` listener discovery for the spawned AGY process tree, so quota refresh can find the local backend even when AGY does not print a gRPC port in logs.
+
 ## 0.1.28 - 2026-07-08
 
 ### Fixed

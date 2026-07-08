@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.25 - 2026-07-08
+
+### Added
+
+- Added `agy-authx doctor` to show the detected AGY CLI path, version, platform, registry path, and setup guidance.
+- Added opt-in AGY CLI setup commands: `agy-authx setup-agy` and `agy-authx agy install`.
+
+### Fixed
+
+- Commands that require the AGY CLI now fail with setup guidance when `agy` is not found instead of surfacing a low-level spawn/config error.
+- Running `agy-authx` without a command now shows first-run AGY setup guidance when the `agy` binary is not found.
+
 ## 0.1.24 - 2026-07-07
 
 ### Fixed
@@ -38,8 +50,6 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- Added `agy-authx doctor` to show the detected AGY CLI path, version, platform, registry path, and setup guidance.
-- Added opt-in AGY CLI setup commands: `agy-authx setup-agy` and `agy-authx agy install`.
 - Added `agy-authx legacy status`, `agy-authx legacy disabled`, and `agy-authx legacy enabled`.
 - `legacy disabled` only uninstalls `@badaruddinl/agy-auth` after verifying the installed version is less than or equal to `0.1.17`.
 - `legacy enabled` removes that verified bridge package when present, then installs `@badaruddinl/agy-auth` so the `agy-auth` command is provided by the bridge package.
@@ -54,7 +64,6 @@ All notable changes to this project are documented here.
 
 ### Fixed
 
-- Commands that require the AGY CLI now fail with setup guidance when `agy` is not found instead of surfacing a low-level spawn/config error.
 - `list --refresh` now reads quota from the AGY local backend instead of falling back to cached usage when AGY's interactive `/usage` command is not available through pipes.
 - `agy-auth login`, `agy-authx login`, and `agy-authx login --oauth` now use a direct Google OAuth browser flow instead of opening the AGY login menu.
 - The OAuth login prompt now always prints the full Google URL as plain text, so Git Bash/MINGW terminals that do not support terminal hyperlinks can still open it manually.

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.26 - 2026-07-08
+
+### Fixed
+
+- Updated the npm package README to document `agy-authx doctor`, `agy-authx setup-agy`, `agy-authx agy install`, and the AGY binary runtime requirement.
+
 ## 0.1.25 - 2026-07-08
 
 ### Added
